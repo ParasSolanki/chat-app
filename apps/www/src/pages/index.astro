@@ -1,0 +1,161 @@
+---
+import CsrfInput from "../components/csrf-input.astro";
+import Layout from "../layouts/default.astro";
+import { actions, isActionError } from "astro:actions";
+import { getUserWorkspaces } from "../server/services/workspace";
+import { lucia } from "../server/lucia";
+import { generateRedirectToken } from "../utils/generate";
+import { env } from "../env";
+
+let workspaces = [];
+const user = Astro.locals.user;
+
+if (Astro.locals.user) {
+  const ws = await getUserWorkspaces(Astro.locals.user.id);
+
+  workspaces = ws.map((w) => {
+    const token = generateRedirectToken({
+      payload: { u: Astro.locals.user.id, w: w.slug },
+      secret: env.TOKEN_SECRET,
+    });
+
+    return {
+      ...w,
+      launchUrl: `http://localhost:3000/ssb/redirect?t=${token}`,
+    };
+  });
+}
+
+const result = Astro.getActionResult(actions.logout);
+let actionError = "";
+
+const error = result?.error;
+
+if (isActionError(error)) actionError = error.message;
+
+if (result && !result.error && Astro.locals.session) {
+  const session = Astro.locals.session;
+
+  await lucia.invalidateSession(session.id);
+  const sessionCookie = lucia.createBlankSessionCookie();
+  Astro.cookies.set(
+    sessionCookie.name,
+    sessionCookie.value,
+    sessionCookie.attributes
+  );
+
+  return Astro.redirect("/", 302);
+}
+---
+
+<Layout title="Chat">
+  <header class="flex items-center h-20 px-4">
+    <div class="container mx-auto flex justify-between">
+      <div>
+        <a href="/" class="text-3xl font-bold tracking-tight">Chat</a>
+      </div>
+      <nav class="flex items-center space-x-2">
+        {
+          !user && (
+            <>
+              <a
+                href="/login"
+                class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+              >
+                Login
+              </a>
+              <a
+                href="/signup"
+                class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
+              >
+                Sign Up
+              </a>
+            </>
+          )
+        }
+
+        {
+          user && (
+            <form method="post" action={actions.logout}>
+              <CsrfInput />
+              <button
+                type="submit"
+                class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+              >
+                Logout
+              </button>
+            </form>
+          )
+        }
+      </nav>
+    </div>
+  </header>
+
+  {
+    user && (
+      <section class="px-4 py-20 bg-primary-foreground">
+        <div class="max-w-4xl mx-auto space-y-6">
+          <h1 class="text-4xl lg:text-5xl font-bold tracking-tight">
+            Welcome Back
+          </h1>
+
+          {!!workspaces.length && (
+            <div class="rounded-md overflow-hidden">
+              <h3 class="text-lg tracking-tight p-4 bg-primary text-primary-foreground">
+                Workspaces for {user.email}
+              </h3>
+
+              {workspaces.map((w) => (
+                <div class="p-4 flex items-center justify-between border-t border-border bg-card">
+                  <div class="space-y-2">
+                    <div class="space-x-2 flex items-center">
+                      <h4 class="font-medium text-xl">{w.name}</h4>
+                      {user.id === w.ownerId && (
+                        <p class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-primary text-primary-foreground hover:bg-primary/80">
+                          My Workspace
+                        </p>
+                      )}
+                    </div>
+                    <div class="space-x-2 flex items-center">
+                      <div class="flex items-center">
+                        {w.membersAvatars.map((url) => (
+                          <img src={url} alt="avatar" class="size-6" />
+                        ))}
+                      </div>
+                      <p>
+                        {w.membersCount > 1
+                          ? `${w.membersCount} members`
+                          : `${w.membersCount} member`}
+                      </p>
+                    </div>
+                  </div>
+                  <a
+                    target="_blank"
+                    href={w.launchUrl}
+                    class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+                  >
+                    Launch Chat
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div class="mt-12 max-w-4xl mx-auto space-y-6">
+          <div class="px-4 py-6 flex items-center justify-between bg-card">
+            <p class="text-xl font-semibold tracking-tight">
+              Want to chat with different team?
+            </p>
+            <button
+              type="button"
+              class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
+            >
+              Create new Workspace
+            </button>
+          </div>
+        </div>
+      </section>
+    )
+  }
+</Layout>

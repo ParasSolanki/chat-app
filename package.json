@@ -1,0 +1,12 @@
+{
+  "name": "chat",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "packageManager": "pnpm@9.7.0",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

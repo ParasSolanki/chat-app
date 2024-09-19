@@ -1,0 +1,148 @@
+---
+if (Astro.locals.user) {
+  return Astro.redirect("/");
+}
+
+import Layout from "../layouts/default.astro";
+import { actions, isInputError, isActionError } from "astro:actions";
+import CsrfInput from "../components/csrf-input.astro";
+import { lucia } from "../server/lucia";
+
+const result = Astro.getActionResult(actions.signup);
+
+if (result && !result.error) {
+  const { user } = result.data;
+  const session = await lucia.createSession(user.id, {});
+  const sessionCookie = lucia.createSessionCookie(session.id);
+  Astro.cookies.set(
+    sessionCookie.name,
+    sessionCookie.value,
+    sessionCookie.attributes
+  );
+
+  return Astro.redirect("/", 302);
+}
+
+let emailError = "";
+let passwordError = "";
+let actionError = "";
+
+const error = result?.error;
+
+if (isActionError(error)) actionError = error.message;
+if (isInputError(error)) {
+  if (error.fields.email) emailError = error.fields.email[0];
+  if (error.fields.password) passwordError = error.fields.password[0];
+}
+---
+
+<Layout title="Sign Up">
+  <main class="h-screen relative">
+    <div class="bg-grid absolute inset-0"></div>
+    <section class="max-w-2xl mx-auto flex h-full justify-center flex-col px-4">
+      <div>
+        <h1 class="text-4xl lg:text-5xl font-bold tracking-tight">Sign Up</h1>
+        <p class="text-muted-foreground mt-2 text-base">Create an account</p>
+      </div>
+
+      {
+        actionError && (
+          <p class="text-sm font-medium text-destructive mt-4">{actionError}</p>
+        )
+      }
+      <form
+        method="post"
+        class:list={[{ "mt-4": !actionError }]}
+        action={actions.signup}
+      >
+        <fieldset class="space-y-4">
+          <CsrfInput />
+          <div class="space-y-1.5">
+            <label
+              for="email"
+              class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              class:list={[{ "text-destructive": !!emailError }]}
+            >
+              Email</label
+            >
+            <div>
+              <input
+                id="email"
+                type="email"
+                name="email"
+                placeholder="Email"
+                autofocus
+                class={`border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
+                class:list={[
+                  { "focus-visible:ring-destructive": !!emailError },
+                ]}
+                aria-invalid={!!emailError}
+                aria-describedby={!!emailError ? "email-message" : undefined}
+              />
+            </div>
+            {
+              emailError && (
+                <p
+                  id="email-message"
+                  class="text-sm font-medium text-destructive"
+                >
+                  {emailError}
+                </p>
+              )
+            }
+          </div>
+          <div class="space-y-1.5">
+            <label
+              for="password"
+              class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              class:list={[{ "text-destructive": !!passwordError }]}
+            >
+              Password</label
+            >
+            <div>
+              <input
+                id="password"
+                type="password"
+                name="password"
+                placeholder="Password"
+                autocomplete="off"
+                class={`border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50`}
+                class:list={[
+                  { "focus-visible:ring-destructive": !!passwordError },
+                ]}
+                aria-invalid={!!passwordError}
+                aria-describedby={!!passwordError
+                  ? "password-message"
+                  : undefined}
+              />
+            </div>
+            {
+              passwordError && (
+                <p
+                  id="password-message"
+                  class="text-sm font-medium text-destructive"
+                >
+                  {passwordError}
+                </p>
+              )
+            }
+          </div>
+
+          <button
+            type="submit"
+            class="inline-flex h-10 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+            >Sign Up</button
+          >
+        </fieldset>
+      </form>
+
+      <p class="mt-4 text-muted-foreground">
+        Already have an account? <a
+          href="/login"
+          class="font-bold text-secondary-foreground underline underline-offset-4 hover:opacity-80"
+          >Login</a
+        >
+      </p>
+    </section>
+  </main>
+</Layout>

@@ -1,0 +1,40 @@
+{
+  "name": "@chat/db",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "typesVersions": {
+    "*": {
+      "*": [
+        "./src/index.ts"
+      ]
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "studio": "drizzle-kit studio",
+    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx ./src/migrate.ts"
+  },
+  "dependencies": {
+    "@dotenvx/dotenvx": "^1.14.0",
+    "@libsql/client": "^0.10.0",
+    "@t3-oss/env-core": "^0.11.0",
+    "drizzle-orm": "^0.33.0",
+    "ulid": "^2.3.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.24.2",
+    "tsx": "^4.17.0",
+    "typescript": "^5.5.3"
+  }
+}
