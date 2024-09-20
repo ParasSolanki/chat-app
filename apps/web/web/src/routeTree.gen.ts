@@ -73,12 +73,65 @@ declare module '@tanstack/react-router' {
 
 // Create and export the route tree
 
-export const routeTree = rootRoute.addChildren({
-  WorkspaceWSlugRoute: WorkspaceWSlugRoute.addChildren({
-    WorkspaceWSlugSlugRoute,
-    WorkspaceWSlugIndexLazyRoute,
-  }),
-})
+interface WorkspaceWSlugRouteChildren {
+  WorkspaceWSlugSlugRoute: typeof WorkspaceWSlugSlugRoute
+  WorkspaceWSlugIndexLazyRoute: typeof WorkspaceWSlugIndexLazyRoute
+}
+
+const WorkspaceWSlugRouteChildren: WorkspaceWSlugRouteChildren = {
+  WorkspaceWSlugSlugRoute: WorkspaceWSlugSlugRoute,
+  WorkspaceWSlugIndexLazyRoute: WorkspaceWSlugIndexLazyRoute,
+}
+
+const WorkspaceWSlugRouteWithChildren = WorkspaceWSlugRoute._addFileChildren(
+  WorkspaceWSlugRouteChildren,
+)
+
+export interface FileRoutesByFullPath {
+  '/workspace/$wSlug': typeof WorkspaceWSlugRouteWithChildren
+  '/workspace/$wSlug/$slug': typeof WorkspaceWSlugSlugRoute
+  '/workspace/$wSlug/': typeof WorkspaceWSlugIndexLazyRoute
+}
+
+export interface FileRoutesByTo {
+  '/workspace/$wSlug/$slug': typeof WorkspaceWSlugSlugRoute
+  '/workspace/$wSlug': typeof WorkspaceWSlugIndexLazyRoute
+}
+
+export interface FileRoutesById {
+  __root__: typeof rootRoute
+  '/workspace/$wSlug': typeof WorkspaceWSlugRouteWithChildren
+  '/workspace/$wSlug/$slug': typeof WorkspaceWSlugSlugRoute
+  '/workspace/$wSlug/': typeof WorkspaceWSlugIndexLazyRoute
+}
+
+export interface FileRouteTypes {
+  fileRoutesByFullPath: FileRoutesByFullPath
+  fullPaths:
+    | '/workspace/$wSlug'
+    | '/workspace/$wSlug/$slug'
+    | '/workspace/$wSlug/'
+  fileRoutesByTo: FileRoutesByTo
+  to: '/workspace/$wSlug/$slug' | '/workspace/$wSlug'
+  id:
+    | '__root__'
+    | '/workspace/$wSlug'
+    | '/workspace/$wSlug/$slug'
+    | '/workspace/$wSlug/'
+  fileRoutesById: FileRoutesById
+}
+
+export interface RootRouteChildren {
+  WorkspaceWSlugRoute: typeof WorkspaceWSlugRouteWithChildren
+}
+
+const rootRouteChildren: RootRouteChildren = {
+  WorkspaceWSlugRoute: WorkspaceWSlugRouteWithChildren,
+}
+
+export const routeTree = rootRoute
+  ._addFileChildren(rootRouteChildren)
+  ._addFileTypes<FileRouteTypes>()
 
 /* prettier-ignore-end */
 

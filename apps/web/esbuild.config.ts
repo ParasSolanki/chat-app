@@ -10,4 +10,10 @@ build({
   banner: {
     js: "import { createRequire as topLevelCreateRequire } from 'module';\n const require = topLevelCreateRequire(import.meta.url);",
   },
-});
+})
+  .then(() => {
+    console.log("Api build successfully");
+  })
+  .catch((error) => {
+    console.error("Api Build failed:", error);
+  });

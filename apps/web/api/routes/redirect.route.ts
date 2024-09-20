@@ -98,7 +98,7 @@ export const route = createApp().openapi(redirectRoute, async (c) => {
 
     c.header("Set-Cookie", sessionCookie.serialize(), { append: true });
     return c.redirect(
-      `http://localhost:5173/workspace/${user.workspace.slug}/${user.channelSlug}`,
+      `${env.BASE_URL}/workspace/${user.workspace.slug}/${user.channelSlug}`,
       302
     );
   } catch (e) {

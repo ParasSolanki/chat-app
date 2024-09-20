@@ -304,8 +304,6 @@ export const server = {
 
       const { hashedPassword, ...userWithoutPassword } = user;
 
-      console.log(userWithoutPassword);
-
       return { user: userWithoutPassword };
     },
   }),

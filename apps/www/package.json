@@ -16,15 +16,15 @@
     "@chat/db": "workspace:^",
     "@lucia-auth/adapter-sqlite": "^3.0.2",
     "@t3-oss/env-core": "^0.11.1",
-    "astro": "^4.15.3",
+    "astro": "^4.15.8",
     "lucia": "^3.2.0",
     "nanoid": "^5.0.7",
     "oslo": "^1.2.1",
-    "tailwindcss": "^3.4.10",
-    "typescript": "^5.5.4",
+    "tailwindcss": "^3.4.12",
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "fontaine": "^0.5.0"
+    "fontaine": "^0.5.0",
+    "typescript": "^5.5.4"
   }
 }

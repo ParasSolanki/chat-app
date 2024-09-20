@@ -27,7 +27,7 @@ export default defineConfig((params) => {
   return {
     envDir,
     plugins: [
-      million.vite({ auto: false }),
+      million.vite({ auto: true }),
       react(),
       TanStackRouterVite(),
       FontaineTransform.vite(options),
