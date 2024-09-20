@@ -1,4 +1,4 @@
-import { Button } from "@chat/ui/components/button.tsx";
+import { Button } from "@chat/ui/components/button";
 import {
   Dialog,
   DialogClose,
@@ -8,12 +8,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@chat/ui/components/dialog.tsx";
-import { Input } from "@chat/ui/components/input.tsx";
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from "@chat/ui/components/radio-group.tsx";
+} from "@chat/ui/components/dialog";
+import { Input } from "@chat/ui/components/input";
+import { RadioGroup, RadioGroupItem } from "@chat/ui/components/radio-group";
 import { Loader2 } from "@chat/ui/icons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -30,7 +27,7 @@ import {
 } from "~/components/ui/form";
 import { client } from "~/utils/api";
 import * as React from "react";
-import { useForm } from "react-hook-form";
+import { SubmitHandler, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -99,7 +96,7 @@ export function AddChannelForm({
   onSubmit,
 }: {
   isPending: boolean;
-  onSubmit: (values: ChannelSchema) => void;
+  onSubmit: SubmitHandler<ChannelSchema>;
 }) {
   const form = useForm({
     resolver: zodResolver(createChannelSchema),
@@ -113,7 +110,8 @@ export function AddChannelForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit((values) => onSubmit(values))}>
+      {/* @ts-ignore */}
+      <form onSubmit={form.handleSubmit(onSubmit)}>
         <fieldset
           disabled={isPending}
           aria-disabled={isPending}

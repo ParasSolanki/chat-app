@@ -9,14 +9,17 @@ import {
   COMMAND_PRIORITY_HIGH,
   INDENT_CONTENT_COMMAND,
 } from "lexical";
+import type { BaseSelection } from "lexical";
 import { useEffect } from "react";
 
-function getElementNodesInSelection(selection) {
+function getElementNodesInSelection(selection: BaseSelection) {
   const nodesInSelection = selection.getNodes();
 
   if (nodesInSelection.length === 0) {
     return new Set([
+      // @ts-ignore
       selection.anchor.getNode().getParentOrThrow(),
+      // @ts-ignore
       selection.focus.getNode().getParentOrThrow(),
     ]);
   }

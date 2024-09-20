@@ -1,13 +1,13 @@
 import { cn } from "@chat/ui/cn";
-import { Button } from "@chat/ui/components/button.tsx";
-import { ScrollArea } from "@chat/ui/components/scroll-area.tsx";
-import { Toggle } from "@chat/ui/components/toggle.tsx";
+import { Button } from "@chat/ui/components/button";
+import { ScrollArea } from "@chat/ui/components/scroll-area";
+import { Toggle } from "@chat/ui/components/toggle";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@chat/ui/components/tooltip.tsx";
+} from "@chat/ui/components/tooltip";
 import { ALargeSmallIcon, PlusIcon, SendHorizonalIcon } from "@chat/ui/icons";
 import { AutoFocusPlugin } from "@lexical/react/LexicalAutoFocusPlugin";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
@@ -50,8 +50,9 @@ export function Editor({
   const [isEditorEmpty, setIsEditorEmpty] = React.useState(true);
   const [isToolbarHidden, setIsToolbarHidden] = React.useState(false);
 
-  const onChange = React.useCallback((editorState: EditorState) => {
-    const json = editorState.toJSON();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const onChange = React.useCallback((_editorState: EditorState) => {
+    // const json = editorState.toJSON();
   }, []);
 
   const toogleToolbarHidden = React.useCallback(() => {
@@ -105,6 +106,7 @@ export function Editor({
               <ContentEditable
                 className="min-h-6 outline-none"
                 placeholder={<Placeholder text={placeholder} />}
+                aria-placeholder={placeholder}
               />
             }
           />

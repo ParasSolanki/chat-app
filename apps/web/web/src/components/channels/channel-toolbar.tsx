@@ -1,17 +1,17 @@
-import { Button } from "@chat/ui/components/button.tsx";
+import { Button } from "@chat/ui/components/button";
 import {
   Card,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@chat/ui/components/card.tsx";
+} from "@chat/ui/components/card";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@chat/ui/components/dialog.tsx";
+} from "@chat/ui/components/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,19 +23,19 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-} from "@chat/ui/components/dropdown-menu.tsx";
+} from "@chat/ui/components/dropdown-menu";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@chat/ui/components/tabs.tsx";
+} from "@chat/ui/components/tabs";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@chat/ui/components/tooltip.tsx";
+} from "@chat/ui/components/tooltip";
 import { Clipboard, EllipsisVerticalIcon } from "@chat/ui/icons";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { channelQueries } from "~/common/keys/channel";

@@ -1,6 +1,6 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { createProtectedApp } from "../pkg/create-app";
-import { schema, eq, and, or, max, sql, desc, lt } from "../pkg/db";
+import { schema, eq, and, or, sql, desc, lt } from "../pkg/db";
 import {
   badRequestErrorResponse,
   forbiddenErrorResponse,
@@ -134,7 +134,7 @@ export const route = createProtectedApp()
     }
   })
   .openapi(meGetDmsRoute, async (c) => {
-    const query = c.req.valid("query");
+    c.req.valid("query");
     const workspace = c.get("workspace");
     const db = c.get("db");
     const member = c.get("member");

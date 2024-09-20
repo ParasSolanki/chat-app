@@ -1,8 +1,10 @@
-import { Button } from "@chat/ui/components/button.tsx";
-import { Skeleton } from "@chat/ui/components/skeleton.tsx";
+import { Button } from "@chat/ui/components/button";
+import { Skeleton } from "@chat/ui/components/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { memberQueries } from "~/common/keys/member";
 import { useSessionStore } from "~/hooks/use-session";
+import type { ChatMessageData } from "~/types";
+import type { Components as VirtuosoComponents } from "react-virtuoso";
 import { UserAvatar } from "../user-avatar";
 
 function DMBannerSkeleton() {
@@ -19,16 +21,19 @@ function DMBannerSkeleton() {
   );
 }
 
-type DMBannerProps = {
-  context: { wSlug: string; slug: string };
+type Props = {
+  wSlug: string;
+  slug: string;
 };
 
-export function DMBanner(props: DMBannerProps) {
+type DMBannerComponent = VirtuosoComponents<ChatMessageData, Props>["Header"];
+
+export const DMBanner: DMBannerComponent = (props) => {
   const userId = useSessionStore((state) => state.user?.id);
   const { data, isLoading } = useQuery(
     memberQueries.details({
-      workspace: props.context.wSlug,
-      member: props.context.slug,
+      workspace: props.context!.wSlug,
+      member: props.context!.slug,
     }),
   );
   const member = data?.data.member;
@@ -80,4 +85,4 @@ export function DMBanner(props: DMBannerProps) {
       )}
     </div>
   );
-}
+};

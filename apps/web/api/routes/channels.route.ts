@@ -1,6 +1,6 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { createProtectedApp } from "../pkg/create-app";
-import { schema, eq, asc, aliasedTable, and } from "../pkg/db";
+import { schema, eq, aliasedTable, and } from "../pkg/db";
 import {
   badRequestErrorResponse,
   conflictErrorResponse,
@@ -111,7 +111,7 @@ const createChannelRoute = createRoute({
     },
   },
   responses: {
-    200: {
+    201: {
       description: "Create workspace channel",
       content: {
         "application/json": {
@@ -222,7 +222,7 @@ export const route = createProtectedApp()
     }
   })
   .openapi(createChannelRoute, async (c) => {
-    const query = c.req.valid("query");
+    c.req.valid("query");
     const body = c.req.valid("json");
     const db = c.get("db");
     const member = c.get("member");

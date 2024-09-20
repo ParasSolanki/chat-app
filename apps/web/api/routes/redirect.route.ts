@@ -1,4 +1,4 @@
-import { createRoute, z } from "@hono/zod-openapi";
+import { createRoute } from "@hono/zod-openapi";
 import { createApp } from "../pkg/create-app";
 import { env } from "../../env";
 import { validateRedirectToken } from "../utils/generate";

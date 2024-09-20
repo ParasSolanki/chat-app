@@ -521,10 +521,10 @@ export const route = createProtectedApp()
         "recipients"
       );
 
-      const replyToMessagesTable = aliasedTable(
-        schema.workspaceMessagesTable,
-        "reply_to_messages"
-      );
+      // const replyToMessagesTable = aliasedTable(
+      //   schema.workspaceMessagesTable,
+      //   "reply_to_messages"
+      // );
       const cursor = query?.cursor ? new Date(query.cursor) : new Date();
       const channelFilter = channel
         ? eq(schema.workspaceChannelsTable.slug, channel.slug)

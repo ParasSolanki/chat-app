@@ -21,7 +21,7 @@ const workspaceResponseSchema = successResponseSchema.extend({
       description: z.string().nullable(),
       createdAt: z.string(),
       updatedAt: z.string().nullable(),
-      channel: z.string().nullable(),
+      channelSlug: z.string().nullable(),
       owner: z
         .object({
           id: z.string(),
@@ -33,7 +33,7 @@ const workspaceResponseSchema = successResponseSchema.extend({
   }),
 });
 
-const sessionRoute = createRoute({
+const workspaceRoute = createRoute({
   method: "get",
   path: "/",
   tags: ["Workspace"],
@@ -60,7 +60,7 @@ const sessionRoute = createRoute({
   },
 });
 
-export const route = createProtectedApp().openapi(sessionRoute, async (c) => {
+export const route = createProtectedApp().openapi(workspaceRoute, async (c) => {
   const { workspace } = c.req.valid("query");
   const db = c.get("db");
 
@@ -111,13 +111,16 @@ export const route = createProtectedApp().openapi(sessionRoute, async (c) => {
       return notFoundError(c, "Workspace not found");
     }
 
-    return c.json({
-      ok: true,
-      code: "OK" as const,
-      data: {
-        workspace: w,
+    return c.json(
+      {
+        ok: true,
+        code: "OK" as const,
+        data: {
+          workspace: w,
+        },
       },
-    });
+      200
+    );
   } catch (e) {
     return internalServerError(c);
   }

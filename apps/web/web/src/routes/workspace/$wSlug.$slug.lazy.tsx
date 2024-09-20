@@ -1,12 +1,12 @@
 import { cn } from "@chat/ui/cn";
-import { Badge } from "@chat/ui/components/badge.tsx";
-import { Skeleton } from "@chat/ui/components/skeleton.js";
+import { Badge } from "@chat/ui/components/badge";
+import { Skeleton } from "@chat/ui/components/skeleton";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@chat/ui/components/tooltip.tsx";
+} from "@chat/ui/components/tooltip";
 import {
   EllipsisVerticalIcon,
   Forward,
@@ -17,12 +17,11 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
-import { createLazyFileRoute } from "@tanstack/react-router";
+import { createLazyFileRoute, Navigate } from "@tanstack/react-router";
 import { messagesKeys, messagesQueries } from "~/common/keys/messages";
 import { ChannelBanner } from "~/components/channels/channel-banner";
 import { DMBanner } from "~/components/dm/dm-banner";
 import { Editor } from "~/components/editor/editor";
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import {
   HoverCard,
   HoverCardContent,
@@ -37,9 +36,11 @@ import {
   MenubarSeparator,
   MenubarTrigger,
 } from "~/components/ui/menubar";
+import { UserAvatar } from "~/components/user-avatar";
 import { LexicalProvider } from "~/contexts/lexical";
 import { useSessionStore } from "~/hooks/use-session";
 import { useWebSocketStore } from "~/hooks/use-ws";
+import { BaseMessage, ChatMessageData, Message } from "~/types";
 import { client } from "~/utils/api";
 import {
   differenceInMinutes,
@@ -63,6 +64,7 @@ const ChannelToolbar = React.lazy(
 
 export const Route = createLazyFileRoute("/workspace/$wSlug/$slug")({
   component: Page,
+  notFoundComponent: NotFound,
 });
 
 function Page() {
@@ -99,6 +101,24 @@ function Page() {
       </div>
     </div>
   );
+}
+
+function NotFound() {
+  const slug = useSessionStore((state) => state.user?.slug);
+  const params = Route.useParams();
+
+  // Redirect to current user details if not found
+
+  if (slug) {
+    return (
+      <Navigate
+        to="/workspace/$wSlug/$slug"
+        params={{ slug, wSlug: params.wSlug }}
+      />
+    );
+  }
+
+  return <div>Not found</div>;
 }
 
 function ToolbarLoading() {
@@ -193,13 +213,11 @@ function Chat() {
     if (!data.pages.length) return [];
 
     const messages = data.pages.flatMap((page) => page.data.messages).reverse();
-    const groups = [] as Array<
-      Message | { id: string; type: "group"; date: string }
-    >;
+    const groups = [] as Array<ChatMessageData>;
     let currentDate = null;
 
     for (let index = 0; index < messages.length; index++) {
-      const m = messages[index];
+      const m = messages[index] as BaseMessage;
       const messageDate = startOfDay(new Date(m.createdAt));
 
       if (!currentDate || !isEqual(currentDate, messageDate)) {
@@ -270,41 +288,6 @@ function Chat() {
     />
   );
 }
-
-type BaseMessage = {
-  id: string;
-  type: "message";
-  slug: string;
-  body: string | null;
-  createdAt: string;
-  updatedAt: string | null;
-  workspace: {
-    id: string;
-    slug: string;
-    name: string;
-  } | null;
-  channel: {
-    id: string;
-    slug: string;
-    name: string;
-  } | null;
-  sender: {
-    id: string;
-    slug: string;
-    name: string;
-    avatarUrl: string | null;
-    username: string;
-  } | null;
-  recipient: {
-    id: string;
-    slug: string;
-    name: string;
-    avatarUrl: string | null;
-    username: string;
-  } | null;
-};
-
-type Message = BaseMessage & { isCompact: boolean };
 
 type ChatMessageProps = {
   message: Message;
@@ -430,14 +413,13 @@ const ChatMessage = React.memo(function Message(props: ChatMessageProps) {
           )}
         >
           <div className="w-10 flex-shrink-0">
-            {!props.compact ? (
-              <Avatar className="size-10 rounded-md">
-                <AvatarImage
-                  src={props.message.sender?.avatarUrl}
-                  alt="@shadcn"
-                />
-                <AvatarFallback>CN</AvatarFallback>
-              </Avatar>
+            {!props.compact && props.message.sender ? (
+              <UserAvatar
+                username={props.message.sender.username}
+                avatarUrl={props.message.sender?.avatarUrl}
+                name={props.message.sender.name}
+                className="size-10"
+              />
             ) : (
               <ChatMessageTime
                 datetime={props.message.createdAt}

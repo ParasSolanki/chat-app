@@ -1,4 +1,4 @@
-import type { Env as _Env } from "hono";
+import type { Env as _Env, Context as HonoContext } from "hono";
 import type { Database } from "./db";
 import { ConsoleLogger } from "./logger";
 import type { User, Session } from "lucia";
@@ -47,3 +47,5 @@ interface ProtectedVariables extends Variables {
 export interface ProtectedEnv extends PublicEnv {
   Variables: ProtectedVariables;
 }
+
+export type Context = HonoContext<PublicEnv | ProtectedEnv>;

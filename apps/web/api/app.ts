@@ -9,7 +9,7 @@ import { route as channelRoutes } from "./routes/channels.route";
 import { route as memberRoutes } from "./routes/members.route";
 import { route as meRoutes } from "./routes/me.route";
 
-const upgradeWebsocket: UpgradeWebSocket = (createEvents) =>
+const upgradeWebsocket: UpgradeWebSocket = () =>
   async function (c, next) {
     if (c.req.header("upgrade") !== "websocket") {
       // Not websocket
@@ -31,7 +31,7 @@ export const app = createApp()
   .get("/api/health", (c) => c.json({ ok: true, code: "OK" }, 200))
   .get(
     "/ws",
-    upgradeWebsocket((c) => {
+    upgradeWebsocket(() => {
       return {
         onClose: () => {},
         onMessage: () => {},
@@ -50,6 +50,6 @@ app.get(
 );
 
 app.get("*", serveStatic({ root: "./web/dist" }));
-app.get("*", serveStatic({ root: "./web/dist/index.html" }));
+app.get("*", serveStatic({ path: "./web/dist/index.html" }));
 
 export type AppType = typeof app;

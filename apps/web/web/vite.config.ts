@@ -40,5 +40,8 @@ export default defineConfig((params) => {
     define: {
       "process.env": processEnv,
     },
+    preview: {
+      port: 5173,
+    },
   };
 });

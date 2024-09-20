@@ -13,26 +13,18 @@ import { createFileRoute } from '@tanstack/react-router'
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
-import { Route as WorkspaceRouteImport } from './routes/workspace/route'
 import { Route as WorkspaceWSlugImport } from './routes/workspace/$wSlug'
+import { Route as WorkspaceWSlugSlugImport } from './routes/workspace/$wSlug.$slug'
 
 // Create Virtual Routes
 
 const WorkspaceWSlugIndexLazyImport = createFileRoute('/workspace/$wSlug/')()
-const WorkspaceWSlugSlugLazyImport = createFileRoute(
-  '/workspace/$wSlug/$slug',
-)()
 
 // Create/Update Routes
 
-const WorkspaceRouteRoute = WorkspaceRouteImport.update({
-  path: '/workspace',
-  getParentRoute: () => rootRoute,
-} as any)
-
 const WorkspaceWSlugRoute = WorkspaceWSlugImport.update({
-  path: '/$wSlug',
-  getParentRoute: () => WorkspaceRouteRoute,
+  path: '/workspace/$wSlug',
+  getParentRoute: () => rootRoute,
 } as any).lazy(() =>
   import('./routes/workspace/$wSlug.lazy').then((d) => d.Route),
 )
@@ -44,7 +36,7 @@ const WorkspaceWSlugIndexLazyRoute = WorkspaceWSlugIndexLazyImport.update({
   import('./routes/workspace/$wSlug.index.lazy').then((d) => d.Route),
 )
 
-const WorkspaceWSlugSlugLazyRoute = WorkspaceWSlugSlugLazyImport.update({
+const WorkspaceWSlugSlugRoute = WorkspaceWSlugSlugImport.update({
   path: '/$slug',
   getParentRoute: () => WorkspaceWSlugRoute,
 } as any).lazy(() =>
@@ -55,25 +47,18 @@ const WorkspaceWSlugSlugLazyRoute = WorkspaceWSlugSlugLazyImport.update({
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/workspace': {
-      id: '/workspace'
-      path: '/workspace'
-      fullPath: '/workspace'
-      preLoaderRoute: typeof WorkspaceRouteImport
-      parentRoute: typeof rootRoute
-    }
     '/workspace/$wSlug': {
       id: '/workspace/$wSlug'
-      path: '/$wSlug'
+      path: '/workspace/$wSlug'
       fullPath: '/workspace/$wSlug'
       preLoaderRoute: typeof WorkspaceWSlugImport
-      parentRoute: typeof WorkspaceRouteImport
+      parentRoute: typeof rootRoute
     }
     '/workspace/$wSlug/$slug': {
       id: '/workspace/$wSlug/$slug'
       path: '/$slug'
       fullPath: '/workspace/$wSlug/$slug'
-      preLoaderRoute: typeof WorkspaceWSlugSlugLazyImport
+      preLoaderRoute: typeof WorkspaceWSlugSlugImport
       parentRoute: typeof WorkspaceWSlugImport
     }
     '/workspace/$wSlug/': {
@@ -89,11 +74,9 @@ declare module '@tanstack/react-router' {
 // Create and export the route tree
 
 export const routeTree = rootRoute.addChildren({
-  WorkspaceRouteRoute: WorkspaceRouteRoute.addChildren({
-    WorkspaceWSlugRoute: WorkspaceWSlugRoute.addChildren({
-      WorkspaceWSlugSlugLazyRoute,
-      WorkspaceWSlugIndexLazyRoute,
-    }),
+  WorkspaceWSlugRoute: WorkspaceWSlugRoute.addChildren({
+    WorkspaceWSlugSlugRoute,
+    WorkspaceWSlugIndexLazyRoute,
   }),
 })
 
@@ -105,25 +88,18 @@ export const routeTree = rootRoute.addChildren({
     "__root__": {
       "filePath": "__root.tsx",
       "children": [
-        "/workspace"
-      ]
-    },
-    "/workspace": {
-      "filePath": "workspace/route.tsx",
-      "children": [
         "/workspace/$wSlug"
       ]
     },
     "/workspace/$wSlug": {
       "filePath": "workspace/$wSlug.tsx",
-      "parent": "/workspace",
       "children": [
         "/workspace/$wSlug/$slug",
         "/workspace/$wSlug/"
       ]
     },
     "/workspace/$wSlug/$slug": {
-      "filePath": "workspace/$wSlug.$slug.lazy.tsx",
+      "filePath": "workspace/$wSlug.$slug.tsx",
       "parent": "/workspace/$wSlug"
     },
     "/workspace/$wSlug/": {

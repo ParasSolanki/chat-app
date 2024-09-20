@@ -3,7 +3,7 @@
   "type": "module",
   "scripts": {
     "dev": "dotenvx run -- tsx watch api/index.ts",
-    "build": "tsx esbuild.config.ts",
+    "build": "tsx esbuild.config.ts && cd ./web && pnpm build",
     "start": "dotenvx run -f .env.production -- node dist/index.js"
   },
   "dependencies": {

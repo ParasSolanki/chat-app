@@ -1,11 +1,11 @@
-import { Separator } from "@chat/ui/components/separator.tsx";
-import { Toggle } from "@chat/ui/components/toggle.tsx";
+import { Separator } from "@chat/ui/components/separator";
+import { Toggle } from "@chat/ui/components/toggle";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@chat/ui/components/tooltip.tsx";
+} from "@chat/ui/components/tooltip";
 import {
   BoldIcon,
   CodeIcon,

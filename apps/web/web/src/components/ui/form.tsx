@@ -1,6 +1,6 @@
 import { cn } from "@chat/ui/cn";
-import { Label, LabelPrimitive } from "@chat/ui/components/label.tsx";
-import { Slot } from "@radix-ui/react-slot";
+import { Label, LabelPrimitive } from "@chat/ui/components/label";
+import { Slot } from "@chat/ui/components/slot";
 import * as React from "react";
 import {
   Controller,

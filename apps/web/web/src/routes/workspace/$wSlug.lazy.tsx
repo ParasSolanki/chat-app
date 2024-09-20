@@ -1,10 +1,10 @@
 import { cn } from "@chat/ui/cn";
-import { Button } from "@chat/ui/components/button.tsx";
+import { Button } from "@chat/ui/components/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@chat/ui/components/collapsible.tsx";
+} from "@chat/ui/components/collapsible";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,15 +12,15 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@chat/ui/components/dropdown-menu.tsx";
-import { ScrollArea } from "@chat/ui/components/scroll-area.tsx";
-import { Skeleton } from "@chat/ui/components/skeleton.js";
+} from "@chat/ui/components/dropdown-menu";
+import { ScrollArea } from "@chat/ui/components/scroll-area";
+import { Skeleton } from "@chat/ui/components/skeleton";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@chat/ui/components/tooltip.tsx";
+} from "@chat/ui/components/tooltip";
 import {
   ChevronDown,
   HashIcon,
@@ -61,6 +61,7 @@ export const Route = createLazyFileRoute("/workspace/$wSlug")({
 
 function WorkspacePage() {
   const params = Route.useParams();
+
   return (
     <SessionProvider workspace={params.wSlug}>
       <WebSocketProvider workspace={params.wSlug}>

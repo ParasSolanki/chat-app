@@ -1,7 +1,9 @@
-import { Skeleton } from "@chat/ui/components/skeleton.tsx";
+import { Skeleton } from "@chat/ui/components/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { channelQueries } from "~/common/keys/channel";
+import type { ChatMessageData } from "~/types";
 import { format } from "date-fns";
+import type { Components as VirtuosoComponents } from "react-virtuoso";
 
 function ChannelBannerSkeleton() {
   return (
@@ -16,15 +18,21 @@ function ChannelBannerSkeleton() {
   );
 }
 
-type ChannelBannerProps = {
-  context: { wSlug: string; slug: string };
+type Props = {
+  wSlug: string;
+  slug: string;
 };
 
-export function ChannelBanner(props: ChannelBannerProps) {
+type ChannelBannerComponent = VirtuosoComponents<
+  ChatMessageData,
+  Props
+>["Header"];
+
+export const ChannelBanner: ChannelBannerComponent = (props) => {
   const { data, isLoading } = useQuery(
     channelQueries.details({
-      workspace: props.context.wSlug,
-      channel: props.context.slug,
+      workspace: props.context!.wSlug,
+      channel: props.context!.slug,
     }),
   );
 
@@ -46,4 +54,4 @@ export function ChannelBanner(props: ChannelBannerProps) {
       </p>
     </div>
   );
-}
+};

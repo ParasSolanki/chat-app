@@ -1,4 +1,4 @@
-import type { Context } from "../types";
+import type { Context } from "hono";
 
 interface RequestError {
   message?: string;

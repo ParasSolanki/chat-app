@@ -76,14 +76,6 @@
     font-weight: 100 900;
     font-display: swap;
   }
-
-  @font-face {
-    font-family: "Cal Sans";
-    src: url("/fonts/CalSans-SemiBold.woff2") format("woff2")
-      url("/fonts/CalSans-SemiBold.woff") format("woff");
-    font-display: swap;
-    font-weight: 100 900;
-  }
 }
 
 .no-transitions * {

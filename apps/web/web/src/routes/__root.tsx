@@ -18,6 +18,7 @@ type RouterContext = {
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   component: Root,
+  notFoundComponent: NotFound,
 });
 
 function Root() {
@@ -30,4 +31,9 @@ function Root() {
       </React.Suspense>
     </>
   );
+}
+
+function NotFound() {
+  console.log("not found here");
+  return <div>Not found global</div>;
 }
