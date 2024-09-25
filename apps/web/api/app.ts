@@ -8,6 +8,7 @@ import { route as messagesRoutes } from "./routes/messages.route";
 import { route as channelRoutes } from "./routes/channels.route";
 import { route as memberRoutes } from "./routes/members.route";
 import { route as meRoutes } from "./routes/me.route";
+import { route as uploadRoutes } from "./routes/uploads.route";
 
 const upgradeWebsocket: UpgradeWebSocket = () =>
   async function (c, next) {
@@ -28,6 +29,7 @@ export const app = createApp()
   .route("/api/messages", messagesRoutes)
   .route("/api/channels", channelRoutes)
   .route("/api/members", memberRoutes)
+  .route("/api/uploadthing", uploadRoutes)
   .get("/api/health", (c) => c.json({ ok: true, code: "OK" }, 200))
   .get(
     "/ws",

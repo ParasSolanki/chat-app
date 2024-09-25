@@ -1,5 +1,7 @@
 import type { ParseRoute, RegisteredRouter } from "@tanstack/react-router";
 
+export * from "../../../api/types";
+
 export type RegisteredRouterPaths = ParseRoute<
   RegisteredRouter["routeTree"]
 >["fullPath"];

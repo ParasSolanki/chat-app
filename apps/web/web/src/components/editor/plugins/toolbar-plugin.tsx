@@ -45,6 +45,7 @@ export function ToolbarPlugin() {
 
   const [isLink, setIsLink] = React.useState(false);
   const [isBold, setIsBold] = React.useState(false);
+  const [isCode, setIsCode] = React.useState(false);
   const [isItalic, setIsItalic] = React.useState(false);
   const [isUnderline, setIsUnderline] = React.useState(false);
   const [isStrikethrough, setIsStrikethrough] = React.useState(false);
@@ -59,6 +60,7 @@ export function ToolbarPlugin() {
       setIsItalic(selection.hasFormat("italic"));
       setIsUnderline(selection.hasFormat("underline"));
       setIsStrikethrough(selection.hasFormat("strikethrough"));
+      setIsCode(selection.hasFormat("code"));
 
       const node = getSelectedNode(selection);
       const parent = node.getParent();
@@ -120,7 +122,7 @@ export function ToolbarPlugin() {
   }, [editor, $updateToolbar]);
 
   return (
-    <div ref={toolbarRef} className="flex items-center space-x-2">
+    <div ref={toolbarRef} className="flex items-center space-x-2 px-3 pt-2">
       <div className="flex items-center space-x-1">
         <Hint text="Bold">
           <Toggle
@@ -253,7 +255,11 @@ export function ToolbarPlugin() {
             size="sm"
             type="button"
             className="h-8 px-2"
-            aria-label="Code"
+            aria-label="Insert Code"
+            pressed={isCode}
+            onPressedChange={() => {
+              activeEditor.dispatchCommand(FORMAT_TEXT_COMMAND, "code");
+            }}
           >
             <CodeIcon className="size-4" />
           </Toggle>

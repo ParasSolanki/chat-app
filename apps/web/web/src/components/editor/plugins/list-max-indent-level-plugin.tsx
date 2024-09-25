@@ -10,7 +10,7 @@ import {
   INDENT_CONTENT_COMMAND,
 } from "lexical";
 import type { BaseSelection } from "lexical";
-import { useEffect } from "react";
+import * as React from "react";
 
 function getElementNodesInSelection(selection: BaseSelection) {
   const nodesInSelection = selection.getNodes();
@@ -58,14 +58,10 @@ function isIndentPermitted(maxDepth: number) {
   return totalDepth <= maxDepth;
 }
 
-export default function ListMaxIndentLevelPlugin({
-  maxDepth,
-}: {
-  maxDepth: number;
-}) {
+export function ListMaxIndentLevelPlugin({ maxDepth }: { maxDepth: number }) {
   const [editor] = useLexicalComposerContext();
 
-  useEffect(() => {
+  React.useEffect(() => {
     return editor.registerCommand(
       INDENT_CONTENT_COMMAND,
       () => !isIndentPermitted(maxDepth ?? 7),

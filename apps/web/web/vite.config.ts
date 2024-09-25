@@ -27,7 +27,7 @@ export default defineConfig((params) => {
   return {
     envDir,
     plugins: [
-      million.vite({ auto: true }),
+      million.vite({ auto: false }),
       react(),
       TanStackRouterVite(),
       FontaineTransform.vite(options),
@@ -39,9 +39,6 @@ export default defineConfig((params) => {
     },
     define: {
       "process.env": processEnv,
-    },
-    preview: {
-      port: 5173,
     },
   };
 });

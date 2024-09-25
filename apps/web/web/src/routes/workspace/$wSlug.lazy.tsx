@@ -78,14 +78,14 @@ function WorkspacePage() {
               <ResizablePanel
                 tagName="aside"
                 defaultSize={22}
-                minSize={16}
-                maxSize={26}
+                minSize={15}
+                maxSize={25}
                 className="flex flex-1 flex-col bg-zinc-50/60"
               >
                 <Sidebar />
               </ResizablePanel>
               <ResizableHandle withHandle />
-              <ResizablePanel className="flex flex-col">
+              <ResizablePanel>
                 <Outlet />
               </ResizablePanel>
             </ResizablePanelGroup>

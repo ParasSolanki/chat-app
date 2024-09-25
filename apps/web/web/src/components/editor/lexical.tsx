@@ -1,8 +1,10 @@
+import { CodeHighlightNode, CodeNode } from "@lexical/code";
 import { AutoLinkNode, LinkNode } from "@lexical/link";
 import { ListItemNode, ListNode } from "@lexical/list";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import type { InitialConfigType } from "@lexical/react/LexicalComposer";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
+import { ImageNode } from "./nodes/ImageNode";
 
 // Catch any errors that occur during Lexical updates and log them
 // or throw them as needed. If you don't throw them, Lexical will
@@ -16,14 +18,15 @@ const theme = {
   paragraph: "text-sm",
   placeholder: "text-sm text-muted",
   heading: {
-    h1: "text-3xl",
-    h2: "text-2xl",
-    h3: "text-xl",
-    h4: "text-lg",
-    h5: "text-base",
-    h6: "text-sm",
+    h1: "text-xl",
+    h2: "text-lg",
+    h3: "text-base",
+    h4: "text-sm",
+    h5: "text-xs",
+    h6: "text-xs",
   },
   text: {
+    code: "font-mono p-1 rounded bg-muted",
     bold: "font-semibold",
     italic: "italic",
     underline: "underline",
@@ -39,6 +42,7 @@ const theme = {
   },
   quote: "border-l-4 border-solid mb-2 pl-4 ml-4 mr-0 border-l-border text-sm",
   link: "underline text-blue-400",
+  image: "block max-w-full",
 } satisfies InitialConfigType["theme"];
 
 const nodes = [
@@ -48,6 +52,9 @@ const nodes = [
   QuoteNode,
   AutoLinkNode,
   LinkNode,
+  CodeNode,
+  CodeHighlightNode,
+  ImageNode,
 ];
 
 const defaultConfig = {

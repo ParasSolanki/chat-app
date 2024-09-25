@@ -66,7 +66,11 @@ export function createApp<Env extends PublicEnv>() {
         "PATCH",
         "OPTIONS",
       ],
-      allowHeaders: ["Content-Type"],
+      allowHeaders: [
+        "Content-Type",
+        "x-uploadthing-version",
+        "x-uploadthing-package",
+      ],
       exposeHeaders: ["Content-Type"],
       credentials: true,
     })

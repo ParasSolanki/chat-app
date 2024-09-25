@@ -1,5 +1,6 @@
 import { cn } from "@chat/ui/cn";
 import { Badge } from "@chat/ui/components/badge";
+import { Button } from "@chat/ui/components/button";
 import { Skeleton } from "@chat/ui/components/skeleton";
 import {
   Tooltip,
@@ -11,6 +12,7 @@ import {
   EllipsisVerticalIcon,
   Forward,
   MessageSquareText,
+  XIcon,
 } from "@chat/ui/icons";
 import {
   useInfiniteQuery,
@@ -18,10 +20,13 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { createLazyFileRoute, Navigate } from "@tanstack/react-router";
+import { generateReactHelpers } from "@uploadthing/react";
 import { messagesKeys, messagesQueries } from "~/common/keys/messages";
 import { ChannelBanner } from "~/components/channels/channel-banner";
 import { DMBanner } from "~/components/dm/dm-banner";
 import { Editor } from "~/components/editor/editor";
+import { LexicalProvider } from "~/components/editor/lexical";
+import { INSERT_IMAGE_COMMAND } from "~/components/editor/nodes/ImageNode";
 import {
   HoverCard,
   HoverCardContent,
@@ -36,11 +41,21 @@ import {
   MenubarSeparator,
   MenubarTrigger,
 } from "~/components/ui/menubar";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "~/components/ui/resizable";
 import { UserAvatar } from "~/components/user-avatar";
-import { LexicalProvider } from "~/contexts/lexical";
+import { DropContextProvider } from "~/contexts/drop";
+import {
+  ThreadContextProvider,
+  useThreadContextStore,
+} from "~/contexts/thread";
+import { env } from "~/env";
 import { useSessionStore } from "~/hooks/use-session";
 import { useWebSocketStore } from "~/hooks/use-ws";
-import { BaseMessage, ChatMessageData, Message } from "~/types";
+import { BaseMessage, ChatMessageData, Message, UploadRouter } from "~/types";
 import { client } from "~/utils/api";
 import {
   differenceInMinutes,
@@ -57,49 +72,147 @@ import { ErrorBoundary } from "react-error-boundary";
 import { Virtuoso } from "react-virtuoso";
 import { toast } from "sonner";
 
+const { uploadFiles } = generateReactHelpers<UploadRouter>({
+  url: env.VITE_PUBLIC_API_URL,
+});
+
 const DMToolbar = React.lazy(() => import("~/components/dm/dm-toolbar"));
 const ChannelToolbar = React.lazy(
   () => import("~/components/channels/channel-toolbar"),
 );
 
 export const Route = createLazyFileRoute("/workspace/$wSlug/$slug")({
-  component: Page,
+  component: Providers,
   notFoundComponent: NotFound,
+  pendingComponent: () => {
+    return "loading...";
+  },
 });
 
-function Page() {
-  return (
-    <div
-      className="relative flex max-h-[calc(100vh_-_44px)] min-h-0 min-w-0 flex-1 flex-col"
-      role="group"
-    >
-      <ErrorBoundary fallback={<div>Something went wrong</div>}>
-        <React.Suspense fallback={<ToolbarLoading />}>
-          <Toolbar />
-        </React.Suspense>
-      </ErrorBoundary>
+function Providers() {
+  const slug = Route.useParams({
+    select: (p) => p.slug,
+  });
 
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <div className="relative min-h-0 flex-1">
-          <Chat />
-        </div>
-        <div className="relative z-50 flex-shrink-0 px-5">
-          <div></div>
-          <div>
-            <ChatEditor />
+  return (
+    <ThreadContextProvider slug={slug}>
+      <Page />
+    </ThreadContextProvider>
+  );
+}
+
+function Page() {
+  const isOpenThread = useThreadContextStore((state) => state.isOpen);
+  const closeThread = useThreadContextStore((state) => state.close);
+
+  return (
+    <ResizablePanelGroup direction="horizontal">
+      <ResizablePanel
+        className="flex flex-col"
+        order={1}
+        minSize={25}
+        maxSize={75}
+      >
+        <div
+          className="relative flex max-h-[calc(100vh_-_44px)] min-h-0 min-w-0 flex-1 flex-col"
+          role="group"
+        >
+          <div
+            role="toolbar"
+            aria-label="Actions"
+            className="relative z-50 flex h-14 flex-shrink-0 items-center justify-between border-b border-border px-4 py-3"
+          >
+            <ErrorBoundary fallback={<div>Something went wrong</div>}>
+              <React.Suspense fallback={<ToolbarLoading />}>
+                <Toolbar />
+              </React.Suspense>
+            </ErrorBoundary>
           </div>
-          <div className="flex flex-shrink-0 items-center justify-between p-1 text-xs text-muted-foreground">
-            <p className="">{/* user is typing... */}</p>
-            <p>
-              <strong>
-                <kbd>Shift</kbd> + <kbd>Enter</kbd>
-              </strong>{" "}
-              to add a new line
-            </p>
-          </div>
+
+          <ChatView />
         </div>
-      </div>
-    </div>
+      </ResizablePanel>
+      {isOpenThread && (
+        <>
+          <ResizableHandle withHandle />
+          <ResizablePanel
+            className="flex flex-col"
+            order={2}
+            minSize={25}
+            maxSize={75}
+          >
+            <DropContextProvider noClick>
+              {({ getRootProps, isDragActive }) => (
+                <div
+                  {...getRootProps({
+                    className: "relative flex min-h-0 flex-1 flex-col",
+                  })}
+                >
+                  <div
+                    role="toolbar"
+                    aria-label="Actions"
+                    className="relative z-50 flex h-14 flex-shrink-0 items-center justify-between border-b border-border px-4 py-3"
+                  >
+                    <h2 className="text-lg font-bold tracking-tight">Thread</h2>
+
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 p-0"
+                            onClick={() => closeThread()}
+                            aria-label="Close thread"
+                          >
+                            <XIcon className="size-4" aria-hidden />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                          <span>Close</span>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  Lorem, ipsum dolor sit amet consectetur adipisicing elit.
+                  Consequatur ratione impedit magnam voluptate. Magni
+                  praesentium dolores quam repellendus nobis sit dignissimos
+                  voluptate officiis temporibus aspernatur omnis, tempore
+                  repudiandae nostrum fugit!
+                  <div className="relative z-50 flex-shrink-0 px-4">
+                    <div></div>
+                    <div>
+                      <LexicalProvider>
+                        <Editor />
+                      </LexicalProvider>
+                    </div>
+                    <div className="flex flex-shrink-0 items-center justify-between p-1 text-xs text-muted-foreground">
+                      <p className="">{/* user is typing... */}</p>
+                      <p>
+                        <strong>
+                          <kbd>Shift</kbd> + <kbd>Enter</kbd>
+                        </strong>{" "}
+                        to add a new line
+                      </p>
+                    </div>
+                  </div>
+                  {isDragActive && (
+                    <div
+                      data-state={isDragActive ? "open" : "closed"}
+                      className="absolute inset-0 flex h-full w-full items-center justify-center bg-background/95 data-[state=open]:visible data-[state=closed]:z-[-1px] data-[state=open]:z-50 data-[state=closed]:opacity-0 data-[state=open]:opacity-100 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+                    >
+                      <h3 className="text-bold text-2xl tracking-tight">
+                        Upload to workspace
+                      </h3>
+                    </div>
+                  )}
+                </div>
+              )}
+            </DropContextProvider>
+          </ResizablePanel>
+        </>
+      )}
+    </ResizablePanelGroup>
   );
 }
 
@@ -123,14 +236,10 @@ function NotFound() {
 
 function ToolbarLoading() {
   return (
-    <div
-      role="toolbar"
-      aria-label="Actions"
-      className="flex flex-shrink-0 items-center justify-between border-b border-border px-4 py-3"
-    >
+    <>
       <Skeleton className="h-6 w-40" />
       <Skeleton className="h-6 w-6" />
-    </div>
+    </>
   );
 }
 
@@ -196,6 +305,133 @@ function Toolbar() {
 function Loading() {
   return (
     <p className="text-center text-xs text-muted-foreground">loading...</p>
+  );
+}
+
+function ChatView() {
+  const params = Route.useParams();
+  const queryClient = useQueryClient();
+  const key = chatKey(params.slug);
+  const ws = useWebSocketStore((state) => state.ws);
+  const isConnected = useWebSocketStore((state) => state.isConnected);
+  const editorRef = React.useRef<LexicalEditor | null>(null);
+
+  const { mutate } = useMutation({
+    mutationKey: [
+      "messages",
+      key,
+      "create",
+      { workspace: params.wSlug, slug: params.slug },
+    ],
+    mutationFn: async (body: string) => {
+      const response = await client.api.messages.messages.$post({
+        query: {
+          workspace: params.wSlug,
+        },
+        json: {
+          [key]: params.slug,
+          message: {
+            type: "message",
+            body,
+          },
+        },
+      });
+
+      if (!response.ok) throw new Error("Something went wrong");
+
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      if (!isConnected || !ws) return;
+      const message = data.data.message;
+
+      if (!message.body) return;
+
+      queryClient.invalidateQueries({
+        queryKey: messagesKeys.listInfinite({
+          workspace: params.wSlug,
+          [key]: params.slug,
+        }),
+      });
+
+      ws.send(
+        JSON.stringify({
+          type: "chat-message",
+          workspace: params.wSlug,
+          message: {
+            id: message.id,
+            slug: message.slug,
+            body: message.body,
+            "client-message-id": crypto.randomUUID(),
+            createdAt: message.createdAt,
+            updatedAt: message.updatedAt,
+          },
+        }),
+      );
+    },
+  });
+
+  const handleOnMount = React.useCallback((editor: LexicalEditor) => {
+    editorRef.current = editor;
+  }, []);
+
+  const handleOnDrop = React.useCallback((acceptedFiles: File[]) => {
+    uploadFiles("imageUploader", {
+      files: acceptedFiles,
+    })
+      .then((data) => {
+        console.log("upload data", { data });
+      })
+      .catch((error) => {
+        console.error("upload error", error);
+      });
+  }, []);
+
+  return (
+    <DropContextProvider noClick onDrop={handleOnDrop}>
+      {({ getRootProps, isDragActive }) => (
+        <div
+          {...getRootProps({
+            className: "relative flex min-h-0 flex-1 flex-col",
+          })}
+        >
+          <div className="relative min-h-0 flex-1">
+            <Chat />
+          </div>
+          <div className="relative z-50 flex-shrink-0 px-5">
+            <div></div>
+            <div>
+              <LexicalProvider>
+                <Editor
+                  onMount={handleOnMount}
+                  onSave={(json) => mutate(json)}
+                />
+              </LexicalProvider>
+            </div>
+            <div className="flex flex-shrink-0 items-center justify-between p-1 text-xs text-muted-foreground">
+              <p className="">{/* user is typing... */}</p>
+              <p>
+                <strong>
+                  <kbd>Shift</kbd> + <kbd>Enter</kbd>
+                </strong>{" "}
+                to add a new line
+              </p>
+            </div>
+          </div>
+
+          {isDragActive && (
+            <div
+              data-state={isDragActive ? "open" : "closed"}
+              className="absolute inset-0 flex h-full w-full items-center justify-center bg-background/95 data-[state=open]:visible data-[state=closed]:z-[-1px] data-[state=open]:z-50 data-[state=closed]:opacity-0 data-[state=open]:opacity-100 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+            >
+              <h3 className="text-bold text-2xl tracking-tight">
+                Upload to workspace
+              </h3>
+            </div>
+          )}
+        </div>
+      )}
+    </DropContextProvider>
   );
 }
 
@@ -300,6 +536,7 @@ const ChatMessage = React.memo(function Message(props: ChatMessageProps) {
   const [mode, setMode] = React.useState<"view" | "edit">("view");
   const userId = useSessionStore((state) => state.user?.id);
   const editorRef = React.useRef<LexicalEditor | null>(null);
+  const openThread = useThreadContextStore((state) => state.open);
 
   const { mutate, isPending } = useMutation({
     mutationKey: [
@@ -400,6 +637,14 @@ const ChatMessage = React.memo(function Message(props: ChatMessageProps) {
     return getFormattedTime(props.message.updatedAt);
   }, [props.message.updatedAt]);
 
+  const handleOnDrop = React.useCallback(() => {
+    editorRef.current?.dispatchCommand(INSERT_IMAGE_COMMAND, {
+      altText: "Sample",
+      src: "https://plus.unsplash.com/premium_photo-1677560517139-1836389bf843?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxmZWF0dXJlZC1waG90b3MtZmVlZHwyfHx8ZW58MHx8fHx8",
+    });
+    console.log("is this get called");
+  }, []);
+
   return (
     <HoverCard openDelay={10} closeDelay={0}>
       <HoverCardTrigger asChild>
@@ -455,13 +700,15 @@ const ChatMessage = React.memo(function Message(props: ChatMessageProps) {
               {isPending && (
                 <p className="text-xs text-muted-foreground">updating...</p>
               )}
-              <Editor
-                mode={mode}
-                placeholder="Add message"
-                onMount={handleOnMount}
-                onSave={handleOnSave}
-                onCancel={handleOnCancel}
-              />
+              <DropContextProvider onDrop={handleOnDrop}>
+                <Editor
+                  mode={mode}
+                  placeholder="Add message"
+                  onMount={handleOnMount}
+                  onSave={handleOnSave}
+                  onCancel={handleOnCancel}
+                />
+              </DropContextProvider>
               {props.message.updatedAt && (
                 <TooltipProvider>
                   <Tooltip>
@@ -493,7 +740,10 @@ const ChatMessage = React.memo(function Message(props: ChatMessageProps) {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <MenubarTrigger className="p-2">
+                  <MenubarTrigger
+                    className="p-2"
+                    onClick={() => openThread(props.message.slug)}
+                  >
                     <MessageSquareText className="size-4" />
                   </MenubarTrigger>
                 </TooltipTrigger>
@@ -584,71 +834,3 @@ const ChatMessageTime = React.memo(function Time(props: {
     </TooltipProvider>
   );
 });
-
-function ChatEditor() {
-  const params = Route.useParams();
-  const queryClient = useQueryClient();
-  const key = chatKey(params.slug);
-  const ws = useWebSocketStore((state) => state.ws);
-  const isConnected = useWebSocketStore((state) => state.isConnected);
-  const { mutate } = useMutation({
-    mutationKey: [
-      "messages",
-      key,
-      "create",
-      { workspace: params.wSlug, slug: params.slug },
-    ],
-    mutationFn: async (body: string) => {
-      const response = await client.api.messages.messages.$post({
-        query: {
-          workspace: params.wSlug,
-        },
-        json: {
-          [key]: params.slug,
-          message: {
-            type: "message",
-            body,
-          },
-        },
-      });
-
-      if (!response.ok) throw new Error("Something went wrong");
-
-      return await response.json();
-    },
-    onSuccess: (data) => {
-      if (!isConnected || !ws) return;
-      const message = data.data.message;
-
-      if (!message.body) return;
-
-      queryClient.invalidateQueries({
-        queryKey: messagesKeys.listInfinite({
-          workspace: params.wSlug,
-          [key]: params.slug,
-        }),
-      });
-
-      ws.send(
-        JSON.stringify({
-          type: "chat-message",
-          workspace: params.wSlug,
-          message: {
-            id: message.id,
-            slug: message.slug,
-            body: message.body,
-            "client-message-id": crypto.randomUUID(),
-            createdAt: message.createdAt,
-            updatedAt: message.updatedAt,
-          },
-        }),
-      );
-    },
-  });
-
-  return (
-    <LexicalProvider>
-      <Editor onSave={(json) => mutate(json)} />
-    </LexicalProvider>
-  );
-}

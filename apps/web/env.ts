@@ -23,6 +23,9 @@ export const env = createEnv({
     DATABASE_AUTH_TOKEN: z
       .string({ required_error: "DATABASE_AUTH_TOKEN is required" })
       .min(1, "DATABASE_AUTH_TOKEN is required"),
+    UPLOADTHING_TOKEN: z
+      .string({ required_error: "UPLOADTHING_TOKEN is required" })
+      .min(1, "UPLOADTHING_TOKEN is required"),
   },
 
   shared: {
@@ -59,6 +62,7 @@ export const env = createEnv({
     BASE_URL: process.env.BASE_URL,
     DATABASE_URL: process.env.DATABASE_URL,
     DATABASE_AUTH_TOKEN: process.env.DATABASE_AUTH_TOKEN,
+    UPLOADTHING_TOKEN: process.env.UPLOADTHING_TOKEN,
     VITE_PUBLIC_WEBSITE_URL: process.env.VITE_PUBLIC_WEBSITE_URL,
     VITE_PUBLIC_API_URL: process.env.VITE_PUBLIC_API_URL,
   },

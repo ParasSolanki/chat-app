@@ -79,11 +79,7 @@ export default function DMToolbar(props: DMToolbarProps) {
   }, [copy, member.slug]);
 
   return (
-    <div
-      role="toolbar"
-      aria-label="Actions"
-      className="flex flex-shrink-0 items-center justify-between border-b border-border px-4 py-3"
-    >
+    <>
       <button
         type="button"
         className="flex items-center space-x-1 hover:bg-accent"
@@ -103,7 +99,7 @@ export default function DMToolbar(props: DMToolbarProps) {
           <Tooltip>
             <TooltipTrigger asChild>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="size-7 p-0">
+                <Button variant="ghost" size="icon" className="size-8 p-0">
                   <EllipsisVerticalIcon aria-hidden="true" className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -200,6 +196,6 @@ export default function DMToolbar(props: DMToolbarProps) {
           </Tabs>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
