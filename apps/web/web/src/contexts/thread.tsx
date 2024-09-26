@@ -4,6 +4,7 @@ import type { StoreApi } from "zustand";
 
 export type ThreadContextProps = {
   isOpen: boolean;
+  workspace: string;
   slug: string;
   messageSlug?: string;
   open: (slug: string) => void;
@@ -18,8 +19,9 @@ export const ThreadContext = React.createContext<
 ThreadContext.displayName = "ThreadContext";
 
 export type ThreadContextProviderProps = React.PropsWithChildren<{
-  defaultOpen?: boolean;
   slug: string;
+  workspace: string;
+  defaultOpen?: boolean;
   messageSlug?: string;
 }>;
 
@@ -29,6 +31,7 @@ export function ThreadContextProvider(props: ThreadContextProviderProps) {
   if (!storeRef.current) {
     storeRef.current = createStore((set) => ({
       slug: props.slug,
+      workspace: props.workspace,
       isOpen: props.defaultOpen ?? false,
       open: (slug) => set(() => ({ isOpen: true, messageSlug: slug })),
       close: () => set(() => ({ isOpen: false, messageSlug: undefined })),

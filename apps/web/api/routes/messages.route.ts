@@ -8,7 +8,17 @@ import {
   tooManyRequestsErrorResponse,
   contentTooLargeErrorResponse,
 } from "../pkg/errors/response";
-import { aliasedTable, and, desc, eq, lt, schema, sql, isNull } from "@chat/db";
+import {
+  aliasedTable,
+  and,
+  desc,
+  eq,
+  lt,
+  schema,
+  sql,
+  isNull,
+  asc,
+} from "@chat/db";
 import {
   badRequestError,
   forbiddenError,
@@ -43,6 +53,58 @@ const messageSchema = z.object(
     message: "Message is required",
   }
 );
+
+const messageResponseSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  slug: z.string(),
+  body: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string().nullable(),
+  workspace: z
+    .object({
+      id: z.string(),
+      slug: z.string(),
+      name: z.string(),
+    })
+    .nullable(),
+  sender: z
+    .object({
+      id: z.string(),
+      slug: z.string(),
+      name: z.string(),
+      username: z.string(),
+      avatarUrl: z.string().nullable(),
+    })
+    .nullable(),
+  channel: z
+    .object({
+      id: z.string(),
+      slug: z.string(),
+      name: z.string(),
+    })
+    .nullable(),
+  recipient: z
+    .object({
+      id: z.string(),
+      slug: z.string(),
+      name: z.string(),
+      username: z.string(),
+      avatarUrl: z.string().nullable(),
+    })
+    .nullable(),
+  files: z
+    .object({
+      id: z.string(),
+      slug: z.string(),
+      name: z.string(),
+      mimetype: z.string(),
+      url: z.string(),
+      originalW: z.number().nullable(),
+      originalH: z.number().nullable(),
+    })
+    .array(),
+});
 
 const messagePayloadSchema = z.object(
   {
@@ -130,59 +192,7 @@ const getMessagesRoute = createRoute({
           schema: successResponseSchema.extend({
             data: z.object({
               cursor: z.number().optional(),
-              messages: z
-                .object({
-                  id: z.string(),
-                  type: z.string(),
-                  slug: z.string(),
-                  body: z.string().nullable(),
-                  createdAt: z.string(),
-                  updatedAt: z.string().nullable(),
-                  workspace: z
-                    .object({
-                      id: z.string(),
-                      slug: z.string(),
-                      name: z.string(),
-                    })
-                    .nullable(),
-                  sender: z
-                    .object({
-                      id: z.string(),
-                      slug: z.string(),
-                      name: z.string(),
-                      username: z.string(),
-                      avatarUrl: z.string().nullable(),
-                    })
-                    .nullable(),
-                  channel: z
-                    .object({
-                      id: z.string(),
-                      slug: z.string(),
-                      name: z.string(),
-                    })
-                    .nullable(),
-                  recipient: z
-                    .object({
-                      id: z.string(),
-                      slug: z.string(),
-                      name: z.string(),
-                      username: z.string(),
-                      avatarUrl: z.string().nullable(),
-                    })
-                    .nullable(),
-                  files: z
-                    .object({
-                      id: z.string(),
-                      slug: z.string(),
-                      name: z.string(),
-                      mimetype: z.string(),
-                      url: z.string(),
-                      originalW: z.number().nullable(),
-                      originalH: z.number().nullable(),
-                    })
-                    .array(),
-                })
-                .array(),
+              messages: messageResponseSchema.array(),
             }),
           }),
         },
@@ -263,6 +273,44 @@ const deleteMessageRoute = createRoute({
       content: {
         "application/json": {
           schema: successResponseSchema,
+        },
+      },
+    },
+    ...badRequestErrorResponse,
+    ...forbiddenErrorResponse,
+    ...requestTimeoutErrorResponse,
+    ...tooManyRequestsErrorResponse,
+    ...contentTooLargeErrorResponse,
+    ...internalServerErrorResponse,
+  },
+});
+
+const getMessageRepliesRoute = createRoute({
+  method: "get",
+  path: "/messages/{slug}/replies",
+  tags: ["Messages"],
+  request: {
+    params: z.object({
+      slug: messageSlugSchema,
+    }),
+    query: z.object({
+      workspace: workspaceSchema,
+      channel: channelSchema.optional(),
+      recipient: recipientSchema.optional(),
+      cursor: z.coerce.number(z.string()).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Messages",
+      content: {
+        "application/json": {
+          schema: successResponseSchema.extend({
+            data: z.object({
+              cursor: z.number().optional(),
+              messages: messageResponseSchema.array(),
+            }),
+          }),
         },
       },
     },
@@ -770,6 +818,288 @@ export const route = createProtectedApp()
         {
           ok: true,
           code: "OK" as const,
+        },
+        200
+      );
+    } catch (e) {
+      console.error(e);
+      return internalServerError(c);
+    }
+  })
+  .openapi(getMessageRepliesRoute, async (c) => {
+    const { slug } = c.req.valid("param");
+    const query = c.req.valid("query");
+    const db = c.get("db");
+    const workspace = c.get("workspace");
+
+    if (query?.cursor && isNaN(new Date(query.cursor).getTime())) {
+      return badRequestError(c, { message: "Invalid cursor" });
+    }
+
+    let channel = null;
+    // Check whether channel exists or not
+    if (query.channel) {
+      try {
+        const channels = await db
+          .select({
+            id: schema.workspaceChannelsTable.id,
+            slug: schema.workspaceChannelsTable.slug,
+          })
+          .from(schema.workspaceChannelsTable)
+          .leftJoin(
+            schema.workspacesTable,
+            eq(
+              schema.workspacesTable.id,
+              schema.workspaceChannelsTable.workspaceId
+            )
+          )
+          .where(
+            and(
+              eq(schema.workspaceChannelsTable.slug, query.channel),
+              eq(schema.workspacesTable.slug, workspace.slug)
+            )
+          )
+          .limit(1);
+
+        if (!channels[0]) return forbiddenError(c);
+        channel = channels[0];
+      } catch (e) {
+        console.error(e);
+        return internalServerError(c);
+      }
+    }
+
+    let recipient = null;
+    // Check whether recipint exists or not
+    if (query.recipient) {
+      try {
+        const recipients = await db
+          .select({
+            id: schema.workspaceMembersTable.id,
+            slug: schema.workspaceMembersTable.slug,
+          })
+          .from(schema.workspaceMembersTable)
+          .leftJoin(
+            schema.workspacesTable,
+            eq(
+              schema.workspacesTable.id,
+              schema.workspaceMembersTable.workspaceId
+            )
+          )
+          .where(
+            and(
+              eq(schema.workspaceMembersTable.slug, query.recipient),
+              eq(schema.workspacesTable.slug, workspace.slug)
+            )
+          )
+          .limit(1);
+
+        if (!recipients[0]) return forbiddenError(c);
+        recipient = recipients[0];
+      } catch (e) {
+        console.error(e);
+        return internalServerError(c);
+      }
+    }
+
+    const sendersTable = aliasedTable(schema.workspaceMembersTable, "senders");
+    const recipientsTable = aliasedTable(
+      schema.workspaceMembersTable,
+      "recipients"
+    );
+
+    const channelFilter = channel
+      ? eq(schema.workspaceChannelsTable.slug, channel.slug)
+      : undefined;
+    const recipientFilter = recipient
+      ? eq(recipientsTable.slug, recipient.slug)
+      : undefined;
+
+    try {
+      var [parentMessage] = await db
+        .select({
+          id: schema.workspaceMessagesTable.id,
+          type: schema.workspaceMessagesTable.type,
+          slug: schema.workspaceMessagesTable.slug,
+          body: schema.workspaceMessagesTable.body,
+          createdAt: schema.workspaceMessagesTable.createdAt,
+          updatedAt: schema.workspaceMessagesTable.updatedAt,
+          workspace: {
+            id: schema.workspacesTable.id,
+            slug: schema.workspacesTable.slug,
+            name: schema.workspacesTable.name,
+          },
+          sender: {
+            id: sendersTable.id,
+            slug: sendersTable.slug,
+            name: sendersTable.name,
+            username: sendersTable.username,
+            avatarUrl: sendersTable.avatarUrl,
+          },
+          channel: {
+            id: schema.workspaceChannelsTable.id,
+            slug: schema.workspaceChannelsTable.slug,
+            name: schema.workspaceChannelsTable.name,
+          },
+          recipient: {
+            id: recipientsTable.id,
+            slug: recipientsTable.slug,
+            name: recipientsTable.name,
+            username: recipientsTable.username,
+            avatarUrl: recipientsTable.avatarUrl,
+          },
+        })
+        .from(schema.workspaceMessagesTable)
+        .leftJoin(
+          schema.workspacesTable,
+          eq(
+            schema.workspacesTable.id,
+            schema.workspaceMessagesTable.workspaceId
+          )
+        ) // workspaces
+        .leftJoin(
+          sendersTable,
+          eq(sendersTable.id, schema.workspaceMessagesTable.senderId)
+        ) // senders
+        .leftJoin(
+          recipientsTable,
+          eq(recipientsTable.id, schema.workspaceMessagesTable.recipientId)
+        ) // recipients
+        .leftJoin(
+          schema.workspaceMessageFilesTable,
+          eq(
+            schema.workspaceMessageFilesTable.messageId,
+            schema.workspaceMessagesTable.id
+          )
+        ) // files
+        .leftJoin(
+          schema.workspaceChannelsTable,
+          eq(
+            schema.workspaceChannelsTable.id,
+            schema.workspaceMessagesTable.channelId
+          )
+        ) // channels
+        .where(
+          and(
+            eq(schema.workspaceMessagesTable.slug, slug),
+            eq(schema.workspaceMessagesTable.workspaceId, workspace.id),
+            isNull(schema.workspaceMessagesTable.parentMessageId),
+            channelFilter,
+            recipientFilter
+          )
+        );
+
+      if (!parentMessage) return forbiddenError(c);
+    } catch (e) {
+      console.error(e);
+      return internalServerError(c);
+    }
+
+    try {
+      const cursor = query?.cursor ? new Date(query.cursor) : new Date();
+
+      const messages = await db
+        .select({
+          id: schema.workspaceMessagesTable.id,
+          type: schema.workspaceMessagesTable.type,
+          slug: schema.workspaceMessagesTable.slug,
+          body: schema.workspaceMessagesTable.body,
+          createdAt: schema.workspaceMessagesTable.createdAt,
+          updatedAt: schema.workspaceMessagesTable.updatedAt,
+          workspace: {
+            id: schema.workspacesTable.id,
+            slug: schema.workspacesTable.slug,
+            name: schema.workspacesTable.name,
+          },
+          sender: {
+            id: sendersTable.id,
+            slug: sendersTable.slug,
+            name: sendersTable.name,
+            username: sendersTable.username,
+            avatarUrl: sendersTable.avatarUrl,
+          },
+          channel: {
+            id: schema.workspaceChannelsTable.id,
+            slug: schema.workspaceChannelsTable.slug,
+            name: schema.workspaceChannelsTable.name,
+          },
+          recipient: {
+            id: recipientsTable.id,
+            slug: recipientsTable.slug,
+            name: recipientsTable.name,
+            username: recipientsTable.username,
+            avatarUrl: recipientsTable.avatarUrl,
+          },
+          files: sql`
+            case
+                when count(${schema.workspaceMessageFilesTable.id}) = 0 then json('[]')
+                else json(json_group_array(json_object('id', ${schema.workspaceMessageFilesTable.id}, 'mimetype', ${schema.workspaceMessageFilesTable.mimetype},  'name', ${schema.workspaceMessageFilesTable.name}, 'url', ${schema.workspaceMessageFilesTable.url}, 'slug', ${schema.workspaceMessageFilesTable.slug}, 'originalH', ${schema.workspaceMessageFilesTable.originalH}, 'originalW', ${schema.workspaceMessageFilesTable.originalW})))
+            end`.mapWith({
+            mapFromDriverValue: (value) => {
+              return JSON.parse(value) as Array<{
+                id: string;
+                mimetype: string;
+                name: string;
+                slug: string;
+                url: string;
+                originalW: number | null;
+                originalH: number | null;
+              }>;
+            },
+          }),
+        })
+        .from(schema.workspaceMessagesTable)
+        .leftJoin(
+          schema.workspacesTable,
+          eq(
+            schema.workspacesTable.id,
+            schema.workspaceMessagesTable.workspaceId
+          )
+        ) // workspaces
+        .leftJoin(
+          sendersTable,
+          eq(sendersTable.id, schema.workspaceMessagesTable.senderId)
+        ) // senders
+        .leftJoin(
+          recipientsTable,
+          eq(recipientsTable.id, schema.workspaceMessagesTable.recipientId)
+        ) // recipients
+        .leftJoin(
+          schema.workspaceMessageFilesTable,
+          eq(
+            schema.workspaceMessageFilesTable.messageId,
+            schema.workspaceMessagesTable.id
+          )
+        ) // files
+        .leftJoin(
+          schema.workspaceChannelsTable,
+          eq(
+            schema.workspaceChannelsTable.id,
+            schema.workspaceMessagesTable.channelId
+          )
+        ) // channels
+        .where(
+          and(
+            lt(schema.workspaceMessagesTable.createdAt, cursor),
+            eq(schema.workspaceMessagesTable.parentMessageId, parentMessage.id),
+            eq(schema.workspaceMessagesTable.workspaceId, workspace.id),
+            channelFilter,
+            recipientFilter
+          )
+        )
+        .orderBy(asc(schema.workspaceMessagesTable.createdAt))
+        .groupBy(schema.workspaceMessagesTable.id)
+        .limit(20);
+
+      return c.json(
+        {
+          ok: true,
+          code: "OK" as const,
+          data: {
+            parent: parentMessage,
+            messages,
+            cursor: messages.at(-1)?.createdAt.getTime(),
+          },
         },
         200
       );

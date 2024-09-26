@@ -1,6 +1,5 @@
 import { cn } from "@chat/ui/cn";
 import { Badge } from "@chat/ui/components/badge";
-import { Button } from "@chat/ui/components/button";
 import { Skeleton } from "@chat/ui/components/skeleton";
 import {
   Tooltip,
@@ -12,7 +11,6 @@ import {
   EllipsisVerticalIcon,
   Forward,
   MessageSquareText,
-  XIcon,
 } from "@chat/ui/icons";
 import {
   useInfiniteQuery,
@@ -27,6 +25,7 @@ import { DMBanner } from "~/components/dm/dm-banner";
 import { Editor } from "~/components/editor/editor";
 import { LexicalProvider } from "~/components/editor/lexical";
 import { INSERT_IMAGE_COMMAND } from "~/components/editor/nodes/ImageNode";
+import { RepliesChatView } from "~/components/messages/replies";
 import {
   HoverCard,
   HoverCardContent,
@@ -66,7 +65,7 @@ import {
   parseISO,
   startOfDay,
 } from "date-fns";
-import { LexicalEditor } from "lexical";
+import type { LexicalEditor } from "lexical";
 import * as React from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Virtuoso } from "react-virtuoso";
@@ -90,20 +89,19 @@ export const Route = createLazyFileRoute("/workspace/$wSlug/$slug")({
 });
 
 function Providers() {
-  const slug = Route.useParams({
-    select: (p) => p.slug,
-  });
+  const params = Route.useParams();
 
   return (
-    <ThreadContextProvider slug={slug}>
+    <ThreadContextProvider slug={params.slug} workspace={params.wSlug}>
       <Page />
     </ThreadContextProvider>
   );
 }
 
 function Page() {
+  const params = Route.useParams();
   const isOpenThread = useThreadContextStore((state) => state.isOpen);
-  const closeThread = useThreadContextStore((state) => state.close);
+  const messageSlug = useThreadContextStore((state) => state.messageSlug);
 
   return (
     <ResizablePanelGroup direction="horizontal">
@@ -132,7 +130,7 @@ function Page() {
           <ChatView />
         </div>
       </ResizablePanel>
-      {isOpenThread && (
+      {isOpenThread && !!messageSlug && (
         <>
           <ResizableHandle withHandle />
           <ResizablePanel
@@ -141,74 +139,7 @@ function Page() {
             minSize={25}
             maxSize={75}
           >
-            <DropContextProvider noClick>
-              {({ getRootProps, isDragActive }) => (
-                <div
-                  {...getRootProps({
-                    className: "relative flex min-h-0 flex-1 flex-col",
-                  })}
-                >
-                  <div
-                    role="toolbar"
-                    aria-label="Actions"
-                    className="relative z-50 flex h-14 flex-shrink-0 items-center justify-between border-b border-border px-4 py-3"
-                  >
-                    <h2 className="text-lg font-bold tracking-tight">Thread</h2>
-
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-8 p-0"
-                            onClick={() => closeThread()}
-                            aria-label="Close thread"
-                          >
-                            <XIcon className="size-4" aria-hidden />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">
-                          <span>Close</span>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  Lorem, ipsum dolor sit amet consectetur adipisicing elit.
-                  Consequatur ratione impedit magnam voluptate. Magni
-                  praesentium dolores quam repellendus nobis sit dignissimos
-                  voluptate officiis temporibus aspernatur omnis, tempore
-                  repudiandae nostrum fugit!
-                  <div className="relative z-50 flex-shrink-0 px-4">
-                    <div></div>
-                    <div>
-                      <LexicalProvider>
-                        <Editor />
-                      </LexicalProvider>
-                    </div>
-                    <div className="flex flex-shrink-0 items-center justify-between p-1 text-xs text-muted-foreground">
-                      <p className="">{/* user is typing... */}</p>
-                      <p>
-                        <strong>
-                          <kbd>Shift</kbd> + <kbd>Enter</kbd>
-                        </strong>{" "}
-                        to add a new line
-                      </p>
-                    </div>
-                  </div>
-                  {isDragActive && (
-                    <div
-                      data-state={isDragActive ? "open" : "closed"}
-                      className="absolute inset-0 flex h-full w-full items-center justify-center bg-background/95 data-[state=open]:visible data-[state=closed]:z-[-1px] data-[state=open]:z-50 data-[state=closed]:opacity-0 data-[state=open]:opacity-100 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-                    >
-                      <h3 className="text-bold text-2xl tracking-tight">
-                        Upload to workspace
-                      </h3>
-                    </div>
-                  )}
-                </div>
-              )}
-            </DropContextProvider>
+            <RepliesChatView workspace={params.wSlug} slug={params.slug} />
           </ResizablePanel>
         </>
       )}
