@@ -5,15 +5,13 @@ type ListParams = {
   workspace: string;
   channel?: string;
   recipient?: string;
-  cursor?: number;
 };
 
 type RepliesParams = {
   workspace: string;
-  slug?: string;
+  parentSlug?: string;
   channel?: string;
   recipient?: string;
-  cursor?: number;
 };
 
 export const messagesKeys = {
@@ -55,16 +53,16 @@ export const messagesQueries = {
     });
   },
   repliesInfinite: (params: RepliesParams) => {
-    const slug = params.slug;
+    const parentSlug = params.parentSlug;
     return infiniteQueryOptions({
-      queryKey: messagesKeys.repliesInfinite(params),
-      queryFn: slug
+      queryKey: messagesKeys.repliesInfinite({ ...params, parentSlug }),
+      queryFn: parentSlug
         ? async ({ pageParam }) => {
             const response = await client.api.messages.messages[
               ":slug"
             ].replies.$get({
               param: {
-                slug,
+                slug: parentSlug,
               },
               query: {
                 workspace: params.workspace,

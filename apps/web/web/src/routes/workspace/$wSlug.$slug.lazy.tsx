@@ -25,7 +25,7 @@ import { DMBanner } from "~/components/dm/dm-banner";
 import { Editor } from "~/components/editor/editor";
 import { LexicalProvider } from "~/components/editor/lexical";
 import { INSERT_IMAGE_COMMAND } from "~/components/editor/nodes/ImageNode";
-import { RepliesChatView } from "~/components/messages/replies";
+import { RepliesChatView } from "~/components/messages/replies-chat";
 import {
   HoverCard,
   HoverCardContent,
@@ -48,9 +48,9 @@ import {
 import { UserAvatar } from "~/components/user-avatar";
 import { DropContextProvider } from "~/contexts/drop";
 import {
-  ThreadContextProvider,
-  useThreadContextStore,
-} from "~/contexts/thread";
+  RepliesContextProvider,
+  useRepliesContextStore,
+} from "~/contexts/replies";
 import { env } from "~/env";
 import { useSessionStore } from "~/hooks/use-session";
 import { useWebSocketStore } from "~/hooks/use-ws";
@@ -65,6 +65,7 @@ import {
   parseISO,
   startOfDay,
 } from "date-fns";
+import { CLEAR_EDITOR_COMMAND } from "lexical";
 import type { LexicalEditor } from "lexical";
 import * as React from "react";
 import { ErrorBoundary } from "react-error-boundary";
@@ -92,16 +93,19 @@ function Providers() {
   const params = Route.useParams();
 
   return (
-    <ThreadContextProvider slug={params.slug} workspace={params.wSlug}>
+    <RepliesContextProvider
+      key={params.slug}
+      slug={params.slug}
+      workspace={params.wSlug}
+    >
       <Page />
-    </ThreadContextProvider>
+    </RepliesContextProvider>
   );
 }
 
 function Page() {
-  const params = Route.useParams();
-  const isOpenThread = useThreadContextStore((state) => state.isOpen);
-  const messageSlug = useThreadContextStore((state) => state.messageSlug);
+  const isOpen = useRepliesContextStore((state) => state.isOpen);
+  const parentSlug = useRepliesContextStore((state) => state.parentSlug);
 
   return (
     <ResizablePanelGroup direction="horizontal">
@@ -130,7 +134,7 @@ function Page() {
           <ChatView />
         </div>
       </ResizablePanel>
-      {isOpenThread && !!messageSlug && (
+      {isOpen && !!parentSlug && (
         <>
           <ResizableHandle withHandle />
           <ResizablePanel
@@ -139,7 +143,7 @@ function Page() {
             minSize={25}
             maxSize={75}
           >
-            <RepliesChatView workspace={params.wSlug} slug={params.slug} />
+            <RepliesChatView />
           </ResizablePanel>
         </>
       )}
@@ -306,6 +310,15 @@ function ChatView() {
     editorRef.current = editor;
   }, []);
 
+  const handleOnSave = React.useCallback(
+    (json: string) => {
+      mutate(json);
+      editorRef.current?.dispatchCommand(CLEAR_EDITOR_COMMAND, undefined);
+      editorRef.current?.focus();
+    },
+    [mutate],
+  );
+
   const handleOnDrop = React.useCallback((acceptedFiles: File[]) => {
     uploadFiles("imageUploader", {
       files: acceptedFiles,
@@ -333,10 +346,7 @@ function ChatView() {
             <div></div>
             <div>
               <LexicalProvider>
-                <Editor
-                  onMount={handleOnMount}
-                  onSave={(json) => mutate(json)}
-                />
+                <Editor onMount={handleOnMount} onSave={handleOnSave} />
               </LexicalProvider>
             </div>
             <div className="flex flex-shrink-0 items-center justify-between p-1 text-xs text-muted-foreground">
@@ -467,7 +477,7 @@ const ChatMessage = React.memo(function Message(props: ChatMessageProps) {
   const [mode, setMode] = React.useState<"view" | "edit">("view");
   const userId = useSessionStore((state) => state.user?.id);
   const editorRef = React.useRef<LexicalEditor | null>(null);
-  const openThread = useThreadContextStore((state) => state.open);
+  const openThread = useRepliesContextStore((state) => state.open);
 
   const { mutate, isPending } = useMutation({
     mutationKey: [

@@ -23,7 +23,6 @@ export const sessionQueries = {
 
         return await response.json();
       },
-      refetchOnWindowFocus: false,
     });
   },
 };

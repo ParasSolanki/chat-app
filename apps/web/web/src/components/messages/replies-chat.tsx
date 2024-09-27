@@ -1,15 +1,18 @@
 import { cn } from "@chat/ui/cn";
 import { Button } from "@chat/ui/components/button";
-import { Separator } from "@chat/ui/components/separator";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@chat/ui/components/tooltip";
-import { XIcon } from "@chat/ui/icons";
-import { useInfiniteQuery } from "@tanstack/react-query";
-import { messagesQueries } from "~/common/keys/messages";
+import { EllipsisVerticalIcon, Forward, XIcon } from "@chat/ui/icons";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { messagesKeys, messagesQueries } from "~/common/keys/messages";
 import {
   HoverCard,
   HoverCardContent,
@@ -25,18 +28,18 @@ import {
   MenubarTrigger,
 } from "~/components/ui/menubar";
 import { DropContextProvider } from "~/contexts/drop";
-import { useThreadContextStore } from "~/contexts/thread";
+import { useRepliesContextStore } from "~/contexts/replies";
 import { useSessionStore } from "~/hooks/use-session";
 import { Message } from "~/types";
+import { client } from "~/utils/api";
 import {
   differenceInMinutes,
   format,
-  isEqual,
   isToday,
   isYesterday,
   parseISO,
-  startOfDay,
 } from "date-fns";
+import { CLEAR_EDITOR_COMMAND } from "lexical";
 import type { LexicalEditor } from "lexical";
 import * as React from "react";
 import type { Components as VirtuosoComponents } from "react-virtuoso";
@@ -63,30 +66,46 @@ function getFormattedTime(datetime: string) {
 function useRepliesChatMessages({
   workspace,
   slug,
-  messageSlug,
+  parentSlug,
 }: {
   workspace: string;
   slug: string;
-  messageSlug?: string;
+  parentSlug?: string;
 }) {
   const key = chatKey(slug);
 
   return useInfiniteQuery(
     messagesQueries.repliesInfinite({
       workspace,
-      slug: messageSlug,
+      parentSlug,
       [key]: slug,
     }),
   );
 }
 
-type RepliesChatViewProps = {
-  workspace: string;
-  slug: string;
-};
+function useInvalidateRepliesChatMessages() {
+  const queryClient = useQueryClient();
+  const workspace = useRepliesContextStore((state) => state.workspace);
+  const slug = useRepliesContextStore((state) => state.slug);
+  const parentSlug = useRepliesContextStore((state) => state.parentSlug);
 
-export function RepliesChatView(props: RepliesChatViewProps) {
-  const closeThread = useThreadContextStore((state) => state.close);
+  const key = chatKey(slug);
+
+  const invalidate = React.useCallback(() => {
+    queryClient.invalidateQueries({
+      queryKey: messagesKeys.repliesInfinite({
+        workspace,
+        parentSlug,
+        [key]: slug,
+      }),
+    });
+  }, [key, slug, workspace, queryClient, parentSlug]);
+
+  return invalidate;
+}
+
+export function RepliesChatView() {
+  const close = useRepliesContextStore((state) => state.close);
 
   return (
     <DropContextProvider noClick>
@@ -110,7 +129,7 @@ export function RepliesChatView(props: RepliesChatViewProps) {
                     variant="ghost"
                     size="icon"
                     className="size-8 p-0"
-                    onClick={() => closeThread()}
+                    onClick={() => close()}
                     aria-label="Close thread"
                   >
                     <XIcon className="size-4" aria-hidden />
@@ -123,7 +142,7 @@ export function RepliesChatView(props: RepliesChatViewProps) {
             </TooltipProvider>
           </div>
 
-          <RepliesChat workspace={props.workspace} slug={props.slug} />
+          <RepliesChat />
 
           {isDragActive && (
             <div
@@ -141,15 +160,11 @@ export function RepliesChatView(props: RepliesChatViewProps) {
   );
 }
 
-type RepliesChatProps = {
-  workspace: string;
-  slug: string;
-};
-
 const COMPACT_INTERVAL_MINUTES = 10;
 
 type HeaderProps = {
   parent: Message;
+  replies: number;
 };
 
 type HeaderComponent = VirtuosoComponents<
@@ -159,36 +174,43 @@ type HeaderComponent = VirtuosoComponents<
 
 const Header: HeaderComponent = (props) => {
   const message = props.context!.parent;
+  const replies = props.context!.replies;
 
   return (
     <div>
       <RepliesChatMessage message={message} compact={false} />
-      {/* <Separator /> */}
+
+      {replies > 0 && (
+        <div
+          role="presentation"
+          data-orientation="horizontal"
+          className="my-1 flex items-center gap-x-2 text-sm capitalize text-muted-foreground before:h-[1px] after:h-[1px] after:flex-1 after:bg-muted-foreground/30"
+        >
+          {replies > 1 ? `${replies} replies` : `${replies} reply`}
+        </div>
+      )}
     </div>
   );
 };
 
-function RepliesChat(props: RepliesChatProps) {
-  const messageSlug = useThreadContextStore((state) => state.messageSlug);
+function RepliesChat() {
+  const workspace = useRepliesContextStore((state) => state.workspace);
+  const slug = useRepliesContextStore((state) => state.slug);
+  const parentSlug = useRepliesContextStore((state) => state.parentSlug);
 
-  const { data, isLoading } = useRepliesChatMessages({
-    workspace: props.workspace,
-    slug: props.slug,
-    messageSlug,
+  const { data, isLoading, fetchPreviousPage } = useRepliesChatMessages({
+    workspace,
+    slug,
+    parentSlug,
   });
 
   const messages = React.useMemo(() => {
     if (!data) return [];
     if (!data.pages.length) return [];
 
-    const allMessages = data.pages
-      .flatMap((page) => page.data.messages)
-      .reverse();
-    const messages = [] as Array<Message>;
+    const allMessages = data.pages.flatMap((page) => page.data.messages);
 
-    for (let index = 0; index < allMessages.length; index++) {
-      const m = allMessages[index];
-
+    return allMessages.map((m, index) => {
       const prevMessage = allMessages[index - 1];
       const isCompact =
         prevMessage &&
@@ -199,17 +221,18 @@ function RepliesChat(props: RepliesChatProps) {
         ) <= COMPACT_INTERVAL_MINUTES;
 
       const message = Object.assign({}, m, { isCompact });
-      messages.push(message);
-    }
-
-    return messages;
+      return message;
+    });
   }, [data]);
 
-  const parent = React.useMemo(() => {
-    if (!data) return null;
-    if (!data.pages.length) return null;
+  const context = React.useMemo(() => {
+    if (!data) return undefined;
+    if (!data.pages.length) return undefined;
 
-    return data.pages[0].data.parent;
+    return {
+      parent: data.pages[0].data.parent,
+      replies: data.pages[0].data.replies,
+    };
   }, [data]);
 
   if (isLoading) return "loading...";
@@ -219,10 +242,10 @@ function RepliesChat(props: RepliesChatProps) {
       style={{ height: "100%" }}
       overscan={400}
       data={messages}
-      context={{ parent }}
+      context={context}
       components={{
         Header,
-        Footer: Footer,
+        Footer,
       }}
       itemContent={(_, m) => (
         <RepliesChatMessage message={m} compact={m.isCompact} />
@@ -232,12 +255,62 @@ function RepliesChat(props: RepliesChatProps) {
 }
 
 function Footer() {
+  const workspace = useRepliesContextStore((state) => state.workspace);
+  const slug = useRepliesContextStore((state) => state.slug);
+  const parentSlug = useRepliesContextStore((state) => state.parentSlug);
+  const key = chatKey(slug);
+
+  const invalidate = useInvalidateRepliesChatMessages();
+  const editorRef = React.useRef<LexicalEditor | null>(null);
+
+  const { mutate } = useMutation({
+    mutationKey: ["messages", key, "create", { workspace, slug, parentSlug }],
+    mutationFn: async (body: string) => {
+      const response = await client.api.messages.messages.$post({
+        query: {
+          workspace,
+        },
+        json: {
+          [key]: slug,
+          parentMessage: parentSlug,
+          message: {
+            type: "message",
+            body,
+          },
+        },
+      });
+
+      if (!response.ok) throw new Error("Something went wrong");
+
+      return await response.json();
+    },
+    onSuccess: () => {
+      invalidate();
+    },
+    onError: () => {
+      toast.error("Something went wrong while sending message");
+    },
+  });
+
+  const handleOnMount = React.useCallback((editor: LexicalEditor) => {
+    editorRef.current = editor;
+  }, []);
+
+  const handleOnSave = React.useCallback(
+    (json: string) => {
+      mutate(json);
+      editorRef.current?.dispatchCommand(CLEAR_EDITOR_COMMAND, undefined);
+      editorRef.current?.focus();
+    },
+    [mutate],
+  );
+
   return (
     <div className="relative z-50 flex-shrink-0 px-4">
       <div></div>
       <div>
         <LexicalProvider>
-          <Editor />
+          <Editor onMount={handleOnMount} onSave={handleOnSave} />
         </LexicalProvider>
       </div>
       <div className="flex flex-shrink-0 items-center justify-between p-1 text-xs text-muted-foreground">
@@ -261,10 +334,73 @@ type RepliesChatMessageProps = {
 const RepliesChatMessage = React.memo(function Message(
   props: RepliesChatMessageProps,
 ) {
+  const workspace = useRepliesContextStore((state) => state.workspace);
   const userId = useSessionStore((state) => state.user?.id);
   const [mode, setMode] = React.useState<"view" | "edit">("view");
 
   const editorRef = React.useRef<LexicalEditor | null>(null);
+
+  const invalidate = useInvalidateRepliesChatMessages();
+
+  const { mutate, isPending } = useMutation({
+    mutationKey: [
+      "messages",
+      "update",
+      { slug: props.message.slug, id: props.message.id },
+    ],
+    mutationFn: async (body: string) => {
+      const response = await client.api.messages.messages[":slug"].$put({
+        param: {
+          slug: props.message.slug,
+        },
+        query: {
+          workspace,
+        },
+        json: {
+          type: "message",
+          body,
+        },
+      });
+
+      if (!response.ok) throw new Error("Something went wrong");
+
+      return await response.json();
+    },
+    onSuccess: () => {
+      invalidate();
+    },
+    onError: () => {
+      toast.error("Something went wrong while updating message");
+    },
+  });
+
+  const { mutate: mutateDelete } = useMutation({
+    mutationKey: [
+      "messages",
+      "delete",
+      { slug: props.message.slug, id: props.message.id },
+    ],
+    mutationFn: async () => {
+      const response = await client.api.messages.messages[":slug"].$delete({
+        param: {
+          slug: props.message.slug,
+        },
+        query: {
+          workspace,
+        },
+      });
+
+      if (!response.ok) throw new Error("Something went wrong");
+
+      return await response.json();
+    },
+    onSuccess: () => {
+      invalidate();
+    },
+    onError: () => {
+      toast.error("Something went wrong while deleting message");
+    },
+  });
 
   const handleOnCancel = React.useCallback(() => {
     setMode("view");
@@ -286,6 +422,15 @@ const RepliesChatMessage = React.memo(function Message(
     editorRef.current = editor;
   }, []);
 
+  const handleOnSave = React.useCallback(
+    (json: string) => {
+      setMode("view");
+      editorRef.current?.setEditable(false);
+      mutate(json);
+    },
+    [mutate],
+  );
+
   const isMe = React.useMemo(() => {
     return props.message.sender?.id === userId;
   }, [props.message.sender?.id, userId]);
@@ -293,8 +438,7 @@ const RepliesChatMessage = React.memo(function Message(
   const formattedUpdatedAt = React.useMemo(() => {
     if (!props.message.updatedAt) return "";
 
-    // return getFormattedTime(props.message.updatedAt);
-    return "";
+    return getFormattedTime(props.message.updatedAt);
   }, [props.message.updatedAt]);
 
   return (
@@ -349,14 +493,15 @@ const RepliesChatMessage = React.memo(function Message(
                 },
               }}
             >
-              {/* {isPending && (
+              {isPending && (
                 <p className="text-xs text-muted-foreground">updating...</p>
-              )} */}
+              )}
               <DropContextProvider>
                 <Editor
                   mode={mode}
                   placeholder="Reply"
                   onMount={handleOnMount}
+                  onSave={handleOnSave}
                   onCancel={handleOnCancel}
                 />
               </DropContextProvider>
@@ -386,56 +531,55 @@ const RepliesChatMessage = React.memo(function Message(
         className="w-max"
         asChild
       >
-        {/* <Menubar className="w-max p-1">
-            
-            <MenubarMenu>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <MenubarTrigger className="p-2">
-                      <Forward className="size-4" />
-                    </MenubarTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Forward message</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </MenubarMenu>
-            <MenubarMenu>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <MenubarTrigger className="p-2">
-                      <EllipsisVerticalIcon className="size-4" />
-                    </MenubarTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>More actions</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-  
-              <MenubarContent>
-                <MenubarItem>Copy link</MenubarItem>
-  
-                {isMe && (
-                  <MenubarGroup>
-                    <MenubarSeparator />
-                    <MenubarItem onSelect={handleOnEditMessage}>
-                      Edit message
-                    </MenubarItem>
-                    <MenubarItem
-                      className="text-destructive focus:bg-destructive focus:text-primary-foreground"
-                      onSelect={() => mutateDelete()}
-                    >
-                      Delete
-                    </MenubarItem>
-                  </MenubarGroup>
-                )}
-              </MenubarContent>
-            </MenubarMenu>
-          </Menubar> */}
+        <Menubar className="w-max p-1">
+          <MenubarMenu>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <MenubarTrigger className="p-2">
+                    <Forward className="size-4" />
+                  </MenubarTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Forward message</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </MenubarMenu>
+          <MenubarMenu>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <MenubarTrigger className="p-2">
+                    <EllipsisVerticalIcon className="size-4" />
+                  </MenubarTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>More actions</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <MenubarContent>
+              <MenubarItem>Copy link</MenubarItem>
+
+              {isMe && (
+                <MenubarGroup>
+                  <MenubarSeparator />
+                  <MenubarItem onSelect={handleOnEditMessage}>
+                    Edit message
+                  </MenubarItem>
+                  <MenubarItem
+                    className="text-destructive focus:bg-destructive focus:text-primary-foreground"
+                    onSelect={() => mutateDelete()}
+                  >
+                    Delete
+                  </MenubarItem>
+                </MenubarGroup>
+              )}
+            </MenubarContent>
+          </MenubarMenu>
+        </Menubar>
       </HoverCardContent>
     </HoverCard>
   );

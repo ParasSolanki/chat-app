@@ -47,8 +47,13 @@ import {
 } from "~/components/ui/resizable";
 import { UserAvatar } from "~/components/user-avatar";
 import { SessionProvider } from "~/contexts/session";
+import {
+  useWorkspaceContextStore,
+  WorkspaceProvider,
+} from "~/contexts/workspace";
 import { WebSocketProvider } from "~/contexts/ws";
-import { useSession, useWorkspace } from "~/hooks/use-workspace";
+import { useSessionStore } from "~/hooks/use-session";
+import { useSession } from "~/hooks/use-workspace";
 import { getInitials } from "~/utils/initials";
 import * as React from "react";
 
@@ -64,34 +69,36 @@ function WorkspacePage() {
 
   return (
     <SessionProvider workspace={params.wSlug}>
-      <WebSocketProvider workspace={params.wSlug}>
-        <main className="flex h-screen max-h-screen flex-col overflow-y-hidden">
-          <header className="h-9 flex-shrink-0 bg-background"> </header>
-          <div className="flex max-h-[inherit] flex-grow">
-            <WorkspaceSidebar />
+      <WorkspaceProvider workspace={params.wSlug}>
+        <WebSocketProvider workspace={params.wSlug}>
+          <main className="flex h-screen max-h-screen flex-col overflow-y-hidden">
+            <header className="h-9 flex-shrink-0 bg-background"> </header>
+            <div className="flex max-h-[inherit] flex-grow">
+              <WorkspaceSidebar />
 
-            <ResizablePanelGroup
-              autoSaveId={"chat-app-layout-persistance"}
-              direction="horizontal"
-              className="max-h-[inherit] overflow-hidden rounded-md border-l-2 border-t-2 border-border"
-            >
-              <ResizablePanel
-                tagName="aside"
-                defaultSize={22}
-                minSize={15}
-                maxSize={25}
-                className="flex flex-1 flex-col bg-zinc-50/60"
+              <ResizablePanelGroup
+                autoSaveId={"chat-app-layout-persistance"}
+                direction="horizontal"
+                className="max-h-[inherit] overflow-hidden rounded-md border-l-2 border-t-2 border-border"
               >
-                <Sidebar />
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-              <ResizablePanel>
-                <Outlet />
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          </div>
-        </main>
-      </WebSocketProvider>
+                <ResizablePanel
+                  tagName="aside"
+                  defaultSize={22}
+                  minSize={15}
+                  maxSize={25}
+                  className="flex flex-1 flex-col bg-zinc-50/60"
+                >
+                  <Sidebar />
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                <ResizablePanel>
+                  <Outlet />
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            </div>
+          </main>
+        </WebSocketProvider>
+      </WorkspaceProvider>
     </SessionProvider>
   );
 }
@@ -114,22 +121,17 @@ function WorkspaceSidebar() {
 }
 
 function WorkspaceMenu() {
-  const params = Route.useParams();
-
-  const { data } = useWorkspace(params.wSlug);
+  const workspace = useWorkspaceContextStore((state) => state.workspace);
 
   const initials = React.useMemo(() => {
-    if (!data) return "";
-    if (!data.data.workspace.name) return "";
+    if (!workspace) return "";
+    if (!workspace.name) return "";
 
-    return data.data.workspace.name
-      .split(" ")
-      .slice(0, 2)
-      .map((c) => c.charAt(0));
-  }, [data]);
+    return getInitials(workspace.name);
+  }, [workspace]);
 
-  const name = data?.data.workspace.name ?? "";
-  const description = data?.data.workspace.description ?? "";
+  const name = workspace?.name ?? "";
+  const description = workspace?.description ?? "";
 
   return (
     <DropdownMenu>
@@ -169,27 +171,22 @@ function WorkspaceMenu() {
 }
 
 function UserMenu() {
-  const params = Route.useParams();
-
-  const { data: workspace } = useWorkspace(params.wSlug);
-  const { data } = useSession(params.wSlug);
+  const user = useSessionStore((state) => state.user);
+  const workspaceName = useWorkspaceContextStore(
+    (state) => state.workspace?.name,
+  );
 
   const initials = React.useMemo(() => {
-    if (!data) return "";
-    if (!data.data.user.name) return "";
+    if (!user) return "";
+    if (!user.name) return "";
 
-    return data.data.user.name
-      .split(" ")
-      .slice(0, 2)
-      .map((c) => c.charAt(0));
-  }, [data]);
+    return getInitials(user.name);
+  }, [user]);
 
-  const name = data?.data.user.name ?? "";
-  const avatarUrl = data?.data.user.avatarUrl ?? "";
-  const username = data?.data.user.username ?? "";
-  const email = data?.data.user.email ?? "";
-
-  const workspaceName = workspace?.data.workspace.name ?? "";
+  const name = user?.name ?? "";
+  const avatarUrl = user?.avatarUrl ?? "";
+  const username = user?.username ?? "";
+  const email = user?.email ?? "";
 
   return (
     <DropdownMenu>
@@ -229,7 +226,7 @@ function UserMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem>
-            <LogOut className="mr-2 size-4" /> Sign out of {workspaceName}
+            <LogOut className="mr-2 size-4" /> Sign out of {workspaceName ?? ""}
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

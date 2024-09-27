@@ -23,7 +23,6 @@ export const workspaceQueries = {
 
         return await response.json();
       },
-      refetchOnWindowFocus: false,
     });
   },
 };

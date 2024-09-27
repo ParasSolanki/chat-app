@@ -18,6 +18,7 @@ import {
   sql,
   isNull,
   asc,
+  count,
 } from "@chat/db";
 import {
   badRequestError,
@@ -93,28 +94,17 @@ const messageResponseSchema = z.object({
       avatarUrl: z.string().nullable(),
     })
     .nullable(),
-  files: z
-    .object({
-      id: z.string(),
-      slug: z.string(),
-      name: z.string(),
-      mimetype: z.string(),
-      url: z.string(),
-      originalW: z.number().nullable(),
-      originalH: z.number().nullable(),
-    })
-    .array(),
 });
 
 const messagePayloadSchema = z.object(
   {
     channel: channelSchema.optional(),
     recipient: recipientSchema.optional(),
-    parentMessageId: z
+    parentMessage: z
       .string({ invalid_type_error: "Invalid parent message" })
       .max(22, "Invalid parent message")
       .optional(),
-    replyToId: z
+    replyTo: z
       .string({ invalid_type_error: "Invalid reply to" })
       .max(22, "Invalid reply to")
       .optional(),
@@ -307,7 +297,9 @@ const getMessageRepliesRoute = createRoute({
         "application/json": {
           schema: successResponseSchema.extend({
             data: z.object({
+              parent: messageResponseSchema,
               cursor: z.number().optional(),
+              replies: z.number(),
               messages: messageResponseSchema.array(),
             }),
           }),
@@ -420,6 +412,31 @@ export const route = createProtectedApp()
       }
     }
 
+    let parentMessage = null;
+    if (body.parentMessage) {
+      try {
+        const messages = await db
+          .select({
+            id: schema.workspaceMessagesTable.id,
+          })
+          .from(schema.workspaceMessagesTable)
+          .where(
+            and(
+              eq(schema.workspaceMessagesTable.slug, body.parentMessage),
+              eq(schema.workspaceMessagesTable.workspaceId, workspace.id),
+              isNull(schema.workspaceMessagesTable.parentMessageId)
+            )
+          )
+          .limit(1);
+
+        if (!messages[0]) return forbiddenError(c);
+        parentMessage = messages[0];
+      } catch (e) {
+        console.error(e);
+        return internalServerError(c);
+      }
+    }
+
     try {
       const message = await db.transaction(async (tx) => {
         let messageSlug = generateMessageSlug();
@@ -457,6 +474,7 @@ export const route = createProtectedApp()
             workspaceId: workspace.id,
             channelId: channel ? channel.id : null,
             recipientId: recipient ? recipient.id : null,
+            parentMessageId: parentMessage ? parentMessage.id : null,
           })
           .returning({
             id: schema.workspaceMessagesTable.id,
@@ -569,10 +587,6 @@ export const route = createProtectedApp()
         "recipients"
       );
 
-      // const replyToMessagesTable = aliasedTable(
-      //   schema.workspaceMessagesTable,
-      //   "reply_to_messages"
-      // );
       const cursor = query?.cursor ? new Date(query.cursor) : new Date();
       const channelFilter = channel
         ? eq(schema.workspaceChannelsTable.slug, channel.slug)
@@ -613,32 +627,6 @@ export const route = createProtectedApp()
             username: recipientsTable.username,
             avatarUrl: recipientsTable.avatarUrl,
           },
-
-          //   replyTo: {
-          //     id: replyToMessagesTable.id,
-          //     type: replyToMessagesTable.type,
-          //     slug: replyToMessagesTable.slug,
-          //     body: replyToMessagesTable.body,
-          //     createdAt: replyToMessagesTable.createdAt,
-          //     updatedAt: replyToMessagesTable.updatedAt,
-          //   },
-          files: sql`
-            case
-                when count(${schema.workspaceMessageFilesTable.id}) = 0 then json('[]')
-                else json(json_group_array(json_object('id', ${schema.workspaceMessageFilesTable.id}, 'mimetype', ${schema.workspaceMessageFilesTable.mimetype},  'name', ${schema.workspaceMessageFilesTable.name}, 'url', ${schema.workspaceMessageFilesTable.url}, 'slug', ${schema.workspaceMessageFilesTable.slug}, 'originalH', ${schema.workspaceMessageFilesTable.originalH}, 'originalW', ${schema.workspaceMessageFilesTable.originalW})))
-            end`.mapWith({
-            mapFromDriverValue: (value) => {
-              return JSON.parse(value) as Array<{
-                id: string;
-                mimetype: string;
-                name: string;
-                slug: string;
-                url: string;
-                originalW: number | null;
-                originalH: number | null;
-              }>;
-            },
-          }),
         })
         .from(schema.workspaceMessagesTable)
         .leftJoin(
@@ -998,6 +986,18 @@ export const route = createProtectedApp()
     try {
       const cursor = query?.cursor ? new Date(query.cursor) : new Date();
 
+      const [replies] = await db
+        .select({
+          count: count(),
+        })
+        .from(schema.workspaceMessagesTable)
+        .where(
+          and(
+            eq(schema.workspaceMessagesTable.parentMessageId, parentMessage.id),
+            eq(schema.workspaceMessagesTable.workspaceId, workspace.id)
+          )
+        );
+
       const messages = await db
         .select({
           id: schema.workspaceMessagesTable.id,
@@ -1097,6 +1097,7 @@ export const route = createProtectedApp()
           code: "OK" as const,
           data: {
             parent: parentMessage,
+            replies: replies.count,
             messages,
             cursor: messages.at(-1)?.createdAt.getTime(),
           },
