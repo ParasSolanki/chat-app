@@ -664,6 +664,41 @@ const ChatMessage = React.memo(function Message(props: ChatMessageProps) {
                   </Tooltip>
                 </TooltipProvider>
               )}
+              {props.message.replies > 0 && (
+                <button
+                  type="button"
+                  className="group flex items-center space-x-1 rounded-md border border-transparent p-0.5 hover:border-border hover:bg-background"
+                  onClick={() => openThread(props.message.slug)}
+                >
+                  {Array.isArray(props.message.topRepliers) &&
+                    !!props.message.topRepliers.length && (
+                      <div className="flex items-center">
+                        {props.message.topRepliers.map((t) => (
+                          <UserAvatar
+                            className="size-5"
+                            key={t.id}
+                            avatarUrl={t.avatarUrl}
+                            name={t.name}
+                            username={t.username}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  <span className="text-xs font-semibold capitalize">
+                    {props.message.replies > 1
+                      ? `${props.message.replies} replies`
+                      : `${props.message.replies} reply`}
+                  </span>
+                  {props.message.lastRepliedAt && (
+                    <span className="scale-x-100 text-xs opacity-100 transition-opacity group-hover:scale-x-0 group-hover:opacity-0">
+                      {getFormattedTime(props.message.lastRepliedAt)}
+                    </span>
+                  )}
+                  <span className="text-xs opacity-0 transition-opacity group-hover:opacity-100">
+                    View thread
+                  </span>
+                </button>
+              )}
             </LexicalProvider>
           </div>
         </div>

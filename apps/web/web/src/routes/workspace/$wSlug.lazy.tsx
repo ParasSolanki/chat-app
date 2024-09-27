@@ -235,10 +235,13 @@ function UserMenu() {
 }
 
 function Sidebar() {
+  const workspaceName = useWorkspaceContextStore(
+    (state) => state.workspace?.name,
+  );
   return (
     <>
       <header className="sticky top-0 bg-transparent px-2 py-2">
-        <h2>John workspace</h2>
+        <h2>{workspaceName ?? ""}</h2>
       </header>
       <ScrollArea>
         <div className="space-y-4 px-2 py-6">

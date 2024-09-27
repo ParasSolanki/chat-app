@@ -198,7 +198,7 @@ function RepliesChat() {
   const slug = useRepliesContextStore((state) => state.slug);
   const parentSlug = useRepliesContextStore((state) => state.parentSlug);
 
-  const { data, isLoading, fetchPreviousPage } = useRepliesChatMessages({
+  const { data, isLoading } = useRepliesChatMessages({
     workspace,
     slug,
     parentSlug,

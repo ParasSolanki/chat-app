@@ -19,6 +19,7 @@ import {
   isNull,
   asc,
   count,
+  max,
 } from "@chat/db";
 import {
   badRequestError,
@@ -586,6 +587,14 @@ export const route = createProtectedApp()
         schema.workspaceMembersTable,
         "recipients"
       );
+      const parentMessageReplierTable = aliasedTable(
+        schema.workspaceMembersTable,
+        "parent_message_replier"
+      );
+      const parentMessagesTable = aliasedTable(
+        schema.workspaceMessagesTable,
+        "parent_messages"
+      );
 
       const cursor = query?.cursor ? new Date(query.cursor) : new Date();
       const channelFilter = channel
@@ -594,6 +603,33 @@ export const route = createProtectedApp()
       const recipientFilter = recipient
         ? eq(recipientsTable.slug, recipient.slug)
         : undefined;
+
+      const topRepliersSubquery = db
+        .select({
+          messageId: parentMessagesTable.parentMessageId,
+          id: parentMessageReplierTable.id,
+          name: parentMessageReplierTable.name,
+          username: parentMessageReplierTable.username,
+          avatarUrl: parentMessageReplierTable.avatarUrl,
+        })
+        .from(parentMessageReplierTable)
+        .innerJoin(
+          parentMessagesTable,
+          eq(parentMessagesTable.senderId, parentMessageReplierTable.id)
+        )
+        .innerJoin(
+          schema.workspaceMessagesTable,
+          eq(
+            schema.workspaceMessagesTable.id,
+            parentMessagesTable.parentMessageId
+          )
+        )
+        .groupBy(
+          parentMessagesTable.parentMessageId,
+          parentMessageReplierTable.id
+        )
+        .limit(4)
+        .as("top_repliers");
 
       const messages = await db
         .select({
@@ -627,6 +663,22 @@ export const route = createProtectedApp()
             username: recipientsTable.username,
             avatarUrl: recipientsTable.avatarUrl,
           },
+          replies: count(parentMessagesTable.id),
+          lastRepliedAt: max(parentMessagesTable.createdAt),
+          topRepliers: sql`
+            case
+                when count(${topRepliersSubquery.id}) = 0 then json('[]')
+                else json(json_group_array(json_object('id', ${topRepliersSubquery.id}, 'name', ${topRepliersSubquery.name}, 'username', ${topRepliersSubquery.username}, 'avatarUrl', ${topRepliersSubquery.avatarUrl})))
+            end`.mapWith({
+            mapFromDriverValue: (value) => {
+              return JSON.parse(value) as Array<{
+                id: string;
+                name: string;
+                username: string;
+                avatarUrl: string | null;
+              }>;
+            },
+          }),
         })
         .from(schema.workspaceMessagesTable)
         .leftJoin(
@@ -658,13 +710,17 @@ export const route = createProtectedApp()
             schema.workspaceMessagesTable.channelId
           )
         ) // channels
-        // .leftJoin(
-        //   replyToMessagesTable,
-        //   and(
-        //     eq(replyToMessagesTable.workspaceId, schema.workspacesTable.id),
-        //     eq(replyToMessagesTable.id, schema.workspaceMessagesTable.replyToId)
-        //   )
-        // ) // reply to messages
+        .leftJoin(
+          parentMessagesTable,
+          eq(
+            parentMessagesTable.parentMessageId,
+            schema.workspaceMessagesTable.id
+          )
+        ) // parent messages table
+        .leftJoin(
+          topRepliersSubquery,
+          eq(topRepliersSubquery.messageId, schema.workspaceMessagesTable.id)
+        )
         .where(
           and(
             lt(schema.workspaceMessagesTable.createdAt, cursor),
